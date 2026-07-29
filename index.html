@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 招聘智能体 — 智能简历筛选系统</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+  <!-- ============ 顶部导航 ============ -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/><path d="M9 11a3 3 0 0 1 6 0"/></svg>
+        </span>
+        <span class="logo-text">AI Recruit Agent</span>
+      </div>
+      <div class="step-nav" id="stepNav">
+        <div class="step-item active" data-step="1">
+          <span class="step-num">1</span>
+          <span class="step-label">输入 JD</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" data-step="2">
+          <span class="step-num">2</span>
+          <span class="step-label">上传简历</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" data-step="3">
+          <span class="step-num">3</span>
+          <span class="step-label">智能分析</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-item" data-step="4">
+          <span class="step-num">4</span>
+          <span class="step-label">结果排名</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- ============ Step 1: JD 输入 ============ -->
+    <section class="screen active" id="screen-1">
+      <div class="card jd-card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+            输入职位描述 (JD)
+          </h2>
+          <p class="card-subtitle">粘贴或输入招聘JD，AI 将自动提取关键技能、经验和学历要求，生成评分标准</p>
+        </div>
+        <div class="jd-editor">
+          <textarea id="jdInput" class="jd-textarea" placeholder="例如：&#10;&#10;岗位：高级 Python 后端工程师&#10;要求：&#10;- 5年以上 Python 开发经验&#10;- 熟悉 Django / Flask 框架&#10;- 熟悉 MySQL、Redis&#10;- 了解 Docker、Kubernetes&#10;- 本科及以上学历，计算机相关专业&#10;- 良好的沟通能力和团队协作精神&#10;..."></textarea>
+          <div class="jd-stats" id="jdStats">
+            <span class="stat-item"><span class="stat-val" id="jdCharCount">0</span> 字符</span>
+            <span class="stat-item"><span class="stat-val" id="jdSkillCount">0</span> 识别技能</span>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-ghost" id="loadDemoJD">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            加载示例 JD
+          </button>
+          <button class="btn btn-primary" id="nextToUpload">
+            下一步：上传简历
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-left:4px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 5 19"/></svg>
+          </button>
+        </div>
+        <div class="jd-preview" id="jdPreview" style="display:none;">
+          <div class="preview-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            AI 识别的评分维度
+          </div>
+          <div class="preview-tags" id="jdPreviewTags"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Step 2: 简历上传 ============ -->
+    <section class="screen" id="screen-2">
+      <div class="card upload-card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            上传候选人简历
+          </h2>
+          <p class="card-subtitle">支持批量拖拽或选择多个 PDF 简历，系统将并行解析并自动提取关键信息</p>
+        </div>
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-zone-inner">
+            <div class="drop-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
+            <p class="drop-text">将 PDF 简历拖拽到此处</p>
+            <p class="drop-subtext">支持一次选择多个文件 · 或 <span class="link-text">点击选择文件</span></p>
+            <input type="file" id="fileInput" multiple accept=".pdf" hidden>
+          </div>
+        </div>
+
+        <!-- 邮箱导入区域 -->
+        <div class="email-import-section">
+          <div class="email-import-header">
+            <div class="email-import-divider"><span>或者</span></div>
+          </div>
+          <button class="btn btn-email-import" id="emailImportBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            从邮箱自动导入实习生简历
+          </button>
+          <p class="email-import-hint">自动搜索邮箱中含「实习 / 秋招 / 求职 / intern」关键词的简历附件</p>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+        <div class="card-actions">
+          <button class="btn btn-ghost" id="backToJD">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 19 5"/></svg>
+            上一步
+          </button>
+          <button class="btn btn-ghost" id="loadDemoResumes">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            加载示例简历
+          </button>
+          <button class="btn btn-primary" id="startAnalysis" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+            开始智能分析
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Step 3: 分析中 ============ -->
+    <section class="screen" id="screen-3">
+      <div class="card analyzing-card">
+        <div class="analyzing-icon">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring delay"></div>
+          <div class="brain-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#4f46e5"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.56 3.5 3.5 0 0 0 .314 6.612A3.5 3.5 0 0 0 12 19.5V5z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.56 3.5 3.5 0 0 1-.314 6.612A3.5 3.5 0 0 1 12 19.5V5z"/></svg>
+          </div>
+        </div>
+        <h2 class="analyzing-title">AI 正在分析候选人</h2>
+        <p class="analyzing-subtitle">基于 JD 智能评分模型，对每份简历进行多维度评估</p>
+        <div class="analysis-steps" id="analysisSteps"></div>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Step 4: 结果展示 ============ -->
+    <section class="screen" id="screen-4">
+      <!-- 总览面板 -->
+      <div class="card results-overview-card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+            候选人排名总览
+          </h2>
+          <p class="card-subtitle" id="resultsSummary"></p>
+        </div>
+        <div class="ranking-chart" id="rankingChart"></div>
+      </div>
+
+      <!-- JD 评分标准展示 -->
+      <div class="card criteria-card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            AI 生成的评分标准
+          </h2>
+          <p class="card-subtitle">基于 JD 自动提取的评分维度与权重</p>
+        </div>
+        <div class="criteria-grid" id="criteriaGrid"></div>
+      </div>
+
+      <!-- 候选人详细卡片 -->
+      <div class="candidates-section">
+        <h2 class="section-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          候选人详细评分
+        </h2>
+        <div id="candidateCards"></div>
+      </div>
+
+      <div class="card-actions results-actions">
+        <button class="btn btn-ghost" id="restart">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          重新开始
+        </button>
+        <button class="btn btn-primary" id="exportResults">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          导出评分报告
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ 简历查看弹窗 ============ -->
+  <div class="resume-modal-overlay" id="resumeModalOverlay">
+    <div class="resume-modal">
+      <div class="resume-modal-header">
+        <div class="resume-modal-title">
+          <span class="resume-modal-rank" id="resumeModalRank"></span>
+          <div>
+            <div class="resume-modal-name" id="resumeModalName"></div>
+            <div class="resume-modal-score" id="resumeModalScore"></div>
+          </div>
+        </div>
+        <button class="resume-modal-close" id="resumeModalClose">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="resume-modal-body" id="resumeModalBody"></div>
+    </div>
+  </div>
+
+  <!-- ============ 邮箱导入弹窗 ============ -->
+  <div class="email-modal-overlay" id="emailModalOverlay">
+    <div class="email-modal">
+      <div class="email-modal-header">
+        <div class="email-modal-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        </div>
+        <div>
+          <h3 class="email-modal-title">从邮箱导入实习生简历</h3>
+          <p class="email-modal-subtitle">正在搜索包含「实习 / 秋招 / 求职 / intern」关键词的邮件…</p>
+        </div>
+        <button class="email-modal-close" id="emailModalClose">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- 邮箱配置面板 -->
+      <div class="email-config-panel" id="emailConfigPanel">
+        <div class="email-config-hint">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>配置邮箱后，网站将自动搜索你邮箱中的实习生简历</span>
+        </div>
+        <div class="email-config-row">
+          <label class="email-config-label">邮箱类型</label>
+          <select id="emailPreset" class="email-config-select">
+            <option value="outlook">Outlook / Hotmail</option>
+            <option value="gmail">Gmail</option>
+            <option value="qq">QQ邮箱</option>
+            <option value="163">163邮箱</option>
+            <option value="126">126邮箱</option>
+            <option value="sina">新浪邮箱</option>
+            <option value="sohu">搜狐邮箱</option>
+            <option value="custom">其他（手动填写）</option>
+          </select>
+        </div>
+        <div class="email-config-row email-custom-server" id="emailCustomServerRow" style="display:none;">
+          <label class="email-config-label">IMAP 服务器</label>
+          <div class="email-custom-server-inputs">
+            <input type="text" id="emailCustomServer" placeholder="imap.example.com" class="email-config-input" style="flex:2">
+            <input type="number" id="emailCustomPort" placeholder="993" value="993" class="email-config-input" style="flex:1">
+          </div>
+        </div>
+        <div class="email-config-row">
+          <label class="email-config-label">邮箱地址</label>
+          <input type="email" id="emailAddr" placeholder="yourname@example.com" class="email-config-input">
+        </div>
+        <div class="email-config-row">
+          <label class="email-config-label">授权码/应用密码</label>
+          <input type="password" id="emailPwd" placeholder="不是邮箱登录密码，而是授权码" class="email-config-input">
+          <p class="email-config-help">Outlook/Gmail 需使用「应用专用密码」，QQ/163 需使用「授权码」，请前往邮箱设置中生成</p>
+        </div>
+        <div class="email-config-actions">
+          <button class="btn btn-primary btn-sm" id="emailConfigSave">保存并连接邮箱</button>
+          <button class="btn btn-ghost btn-sm" id="emailConfigUseDemo">使用演示数据</button>
+        </div>
+        <div class="email-config-status" id="emailConfigStatus"></div>
+      </div>
+
+      <!-- 搜索进度指示器 -->
+      <div class="email-search-progress" id="emailSearchProgress">
+        <div class="email-search-spinner"></div>
+        <p id="emailSearchProgressText">正在搜索邮箱…</p>
+      </div>
+
+      <!-- 搜索结果列表 -->
+      <div class="email-results" id="emailResults" style="display:none;">
+        <div class="email-results-toolbar">
+          <label class="email-select-all">
+            <input type="checkbox" id="emailSelectAll" checked>
+            <span>全选 (<strong id="emailResultCount">0</strong> 封)</span>
+          </label>
+          <span class="email-cache-info" id="emailCacheInfo"></span>
+        </div>
+        <div class="email-results-list" id="emailResultsList"></div>
+      </div>
+
+      <!-- 空状态 -->
+      <div class="email-empty" id="emailEmpty" style="display:none;">
+        <div class="email-empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <p class="email-empty-title">未找到实习生简历</p>
+        <p class="email-empty-desc">邮箱中暂无匹配「实习 / 秋招 / 求职 / intern」关键词的邮件</p>
+      </div>
+
+      <div class="email-modal-actions">
+        <button class="btn btn-ghost" id="emailModalCancel">取消</button>
+        <button class="btn btn-primary" id="emailModalImport" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          导入选中简历
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
