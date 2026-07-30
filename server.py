@@ -486,76 +486,19 @@ def download_attachment_via_imap(email_id: str, attachment_filename: str) -> str
 
 # ========== POP3 实现 ==========
 def _connect_pop3(cfg: dict):
-    """连接并登录 POP3，返回 (conn, total_count)
-
-    处理 CoreMail 等内网 POP3 服务器的各种兼容性问题：
-    - 不调用 getwelcome()（构造函数已读取 banner，二次调用可能触发协议错误）
-    - 自动尝试完整邮箱地址和纯用户名两种登录格式
-    - 逐步记录失败原因，方便排查
-    """
-    import time
-
-    server = cfg["server"]
-    port = cfg["port"]
-    email_addr = cfg["email"]
-    password = cfg["password"]
-
-    def _raw_connect():
-        if cfg.get("ssl", True):
-            context = ssl.create_default_context()
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
-            return poplib.POP3_SSL(server, port, context=context, timeout=30)
-        else:
-            return poplib.POP3(server, port, timeout=30)
-
-    # 准备候选用户名列表（CoreMail 等服务���可能只接受其中一种）
-    candidates = [email_addr]
-    if "@" in email_addr:
-        local_part = email_addr.split("@")[0]
-        if local_part != email_addr:
-            candidates.append(local_part)
-
-    last_error = None
-    last_step = ""
-
-    for i, login_user in enumerate(candidates):
-        conn = _raw_connect()
-        try:
-            # 不调用 getwelcome() —— poplib.POP3() 构造函数会自动读取并存储
-            # 欢迎标语，二次调用 getwelcome() 在 CoreMail 上可能触发协议错误
-
-            last_step = f"USER {login_user}"
-            conn.user(login_user)
-
-            last_step = "PASS"
-            conn.pass_(password)
-
-            last_step = "STAT"
-            msg_count, _ = conn.stat()
-            return conn, msg_count
-
-        except poplib.error_proto as e:
-            last_error = f"步骤「{last_step}」失败: {e}"
-            try:
-                conn.quit()
-            except Exception:
-                pass
-            if i < len(candidates) - 1:
-                # 尝试下一个用户名格式，稍等让服务器恢复
-                time.sleep(0.3)
-                continue
-            raise poplib.error_proto(last_error)
-
-        except Exception as e:
-            try:
-                conn.quit()
-            except Exception:
-                pass
-            raise
-
-    # 理论上不会到这里
-    raise poplib.error_proto(last_error or "未知 POP3 连接错误")
+    """连接并登录 POP3，返回 (conn, total_count)"""
+    if cfg.get("ssl", True):
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        conn = poplib.POP3_SSL(cfg["server"], cfg["port"], context=context, timeout=30)
+    else:
+        conn = poplib.POP3(cfg["server"], cfg["port"], timeout=30)
+    conn.getwelcome()
+    conn.user(cfg["email"])
+    conn.pass_(cfg["password"])
+    stat = conn.stat()
+    return conn, stat[0]
 
 
 def _safe_filename(filename: str) -> str:
