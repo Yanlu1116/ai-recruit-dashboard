@@ -2614,47 +2614,6 @@ const DEMO_EMAIL_DATA = {
   ]
 };
 
-/* 打开邮箱导入弹窗 */
-async function openEmailImport() {
-  emailSearchResults = [];
-  emailDemoMode = false;
-  const overlay = $('#emailModalOverlay');
-  const progress = $('#emailSearchProgress');
-  const results = $('#emailResults');
-  const empty = $('#emailEmpty');
-
-  // 重置状态
-  overlay.classList.add('active');
-  progress.style.display = 'block';
-  results.style.display = 'none';
-  empty.style.display = 'none';
-  $('#emailModalImport').disabled = true;
-
-  try {
-    const resp = await fetch(`${EMAIL_API_BASE}/search-emails?keywords=intern,%E5%AE%9E%E4%B9%A0,%E7%A7%8B%E6%8B%9B,%E6%B1%82%E8%81%8C`);
-    const data = await resp.json();
-
-    if (!data.success || data.total === 0) {
-      progress.style.display = 'none';
-      empty.style.display = 'block';
-      return;
-    }
-
-    emailSearchResults = data.emails;
-    progress.style.display = 'none';
-    results.style.display = 'block';
-    renderEmailResults(data);
-  } catch (err) {
-    console.log('Email backend unavailable, falling back to demo data');
-    // 后端不可用，自动切换演示数据
-    emailDemoMode = true;
-    emailSearchResults = DEMO_EMAIL_DATA.emails;
-    progress.style.display = 'none';
-    results.style.display = 'block';
-    renderEmailResults(DEMO_EMAIL_DATA);
-  }
-}
-
 /* 渲染邮箱搜索结果 */
 function renderEmailResults(data) {
   const list = $('#emailResultsList');
