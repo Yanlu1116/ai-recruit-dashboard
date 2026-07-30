@@ -248,24 +248,42 @@
             <option value="126">126邮箱</option>
             <option value="sina">新浪邮箱</option>
             <option value="sohu">搜狐邮箱</option>
+            <option value="139">139邮箱 (移动)</option>
             <option value="custom">其他（手动填写）</option>
           </select>
         </div>
-        <div class="email-config-row email-custom-server" id="emailCustomServerRow" style="display:none;">
-          <label class="email-config-label">IMAP 服务器</label>
-          <div class="email-custom-server-inputs">
-            <input type="text" id="emailCustomServer" placeholder="imap.example.com" class="email-config-input" style="flex:2">
-            <input type="number" id="emailCustomPort" placeholder="993" value="993" class="email-config-input" style="flex:1">
+        <div class="email-config-row">
+          <label class="email-config-label">收信协议</label>
+          <div class="email-protocol-group">
+            <label class="email-protocol-option">
+              <input type="radio" name="emailProtocol" value="pop3" checked>
+              <span><strong>POP3</strong>（推荐公司内网邮箱，端口 110/995）</span>
+            </label>
+            <label class="email-protocol-option">
+              <input type="radio" name="emailProtocol" value="imap">
+              <span><strong>IMAP</strong>（QQ/163/Gmail 等，端口 143/993）</span>
+            </label>
           </div>
+        </div>
+        <div class="email-config-row email-custom-server" id="emailCustomServerRow" style="display:none;">
+          <label class="email-config-label">服务器地址</label>
+          <div class="email-custom-server-inputs">
+            <input type="text" id="emailCustomServer" placeholder="email.example.com" class="email-config-input" style="flex:2">
+            <input type="number" id="emailCustomPort" placeholder="110" value="110" class="email-config-input" style="flex:1">
+          </div>
+          <label class="email-ssl-toggle">
+            <input type="checkbox" id="emailCustomSSL" checked>
+            <span>使用 SSL 加密（端口 995/993 必选，端口 110 取消勾选）</span>
+          </label>
         </div>
         <div class="email-config-row">
           <label class="email-config-label">邮箱地址</label>
           <input type="email" id="emailAddr" placeholder="yourname@example.com" class="email-config-input">
         </div>
         <div class="email-config-row">
-          <label class="email-config-label">授权码/应用密码</label>
-          <input type="password" id="emailPwd" placeholder="不是邮箱登录密码，而是授权码" class="email-config-input">
-          <p class="email-config-help">Outlook/Gmail 需使用「应用专用密码」，QQ/163 需使用「授权码」，请前往邮箱设置中生成</p>
+          <label class="email-config-label">授权码/密码</label>
+          <input type="password" id="emailPwd" placeholder="授权码/应用密码" class="email-config-input">
+          <p class="email-config-help" id="emailConfigHelp">Outlook/Gmail 需使用「应用专用密码」；QQ/163 需使用「授权码」；公司内网邮箱直接用邮箱密码</p>
         </div>
         <div class="email-config-actions">
           <button class="btn btn-primary btn-sm" id="emailConfigSave">保存并连接邮箱</button>

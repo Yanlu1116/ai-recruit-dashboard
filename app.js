@@ -2064,7 +2064,35 @@ function initEvents() {
   $('#emailConfigSave').addEventListener('click', saveEmailConfig);
   $('#emailConfigUseDemo').addEventListener('click', useDemoEmailData);
   $('#emailPreset').addEventListener('change', (e) => {
-    $('#emailCustomServerRow').style.display = e.target.value === 'custom' ? 'flex' : 'none';
+    const isCustom = e.target.value === 'custom';
+    $('#emailCustomServerRow').style.display = isCustom ? 'flex' : 'none';
+  });
+  // 协议切换时自动调整默认端口
+  document.querySelectorAll('input[name="emailProtocol"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const isCustom = $('#emailPreset').value === 'custom';
+      if (isCustom) {
+        const portInput = $('#emailCustomPort');
+        const sslCheckbox = $('#emailCustomSSL');
+        if (e.target.value === 'pop3') {
+          // POP3 默认 110（明文）/ 995（SSL）
+          portInput.value = sslCheckbox.checked ? 995 : 110;
+        } else {
+          // IMAP 默认 143（明文）/ 993（SSL）
+          portInput.value = sslCheckbox.checked ? 993 : 143;
+        }
+      }
+    });
+  });
+  $('#emailCustomSSL').addEventListener('change', (e) => {
+    if ($('#emailPreset').value !== 'custom') return;
+    const protocolRadio = document.querySelector('input[name="emailProtocol"]:checked');
+    const protocol = protocolRadio ? protocolRadio.value : 'pop3';
+    if (protocol === 'pop3') {
+      $('#emailCustomPort').value = e.target.checked ? 995 : 110;
+    } else {
+      $('#emailCustomPort').value = e.target.checked ? 993 : 143;
+    }
   });
 
   document.addEventListener('keydown', (e) => {
@@ -2130,7 +2158,15 @@ async function handleFiles(files) {
 }
 
 // ========== 邮箱导入功能 ==========
-const EMAIL_API_BASE = 'http://localhost:8089/api';
+// 使用相对路径，自动适配本地 (localhost:8089) 和云端 (Render) 部署
+const EMAIL_API_BASE = (() => {
+  // 如果是 file:// 协议或同源，自动用相对路径
+  if (typeof window === 'undefined') return '/api';
+  const { protocol, hostname } = window.location;
+  // file:// 协议（直接打开本地文件）→ 用相对路径但会失败，提示用户
+  if (protocol === 'file:') return '/api';
+  return '/api';
+})();
 let emailSearchResults = [];
 let emailDemoMode = false;
 let emailConfigLoaded = false;
@@ -2161,16 +2197,21 @@ async function saveEmailConfig() {
   const email = $('#emailAddr').value.trim();
   const password = $('#emailPwd').value.trim();
   const customServer = $('#emailCustomServer').value.trim();
-  const customPort = parseInt($('#emailCustomPort').value) || 993;
+  const customPort = parseInt($('#emailCustomPort').value) || 110;
+  const useSSL = $('#emailCustomSSL').checked;
+  // 读取选中的协议
+  const protocolRadio = document.querySelector('input[name="emailProtocol"]:checked');
+  const protocol = protocolRadio ? protocolRadio.value : 'pop3';
 
   const status = $('#emailConfigStatus');
   status.className = 'email-config-status loading';
-  status.textContent = '正在连接邮箱…';
+  status.textContent = `正在通过 ${protocol.toUpperCase()} 连接邮箱…`;
 
-  const body = { preset, email, password };
+  const body = { preset, email, password, protocol };
   if (preset === 'custom') {
     body.server = customServer;
     body.port = customPort;
+    body.ssl = useSSL;
   }
 
   try {
@@ -2183,7 +2224,6 @@ async function saveEmailConfig() {
     if (data.success) {
       status.className = 'email-config-status success';
       status.textContent = '✓ ' + data.message;
-      // 隐藏配置面板，开始真实搜索
       setTimeout(() => {
         $('#emailConfigPanel').style.display = 'none';
         $('#emailConfigStatus').textContent = '';
@@ -2196,7 +2236,8 @@ async function saveEmailConfig() {
     }
   } catch (e) {
     status.className = 'email-config-status error';
-    status.textContent = '✗ 无法连接服务器 (localhost:8089)';
+    const loc = window.location;
+    status.textContent = `✗ 无法连接后端服务 (${loc.host}/api) — 请确认 Python 后端正在运行`;
   }
 }
 

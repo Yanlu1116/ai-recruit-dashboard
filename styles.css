@@ -1642,6 +1642,56 @@ body {
   gap: 8px;
 }
 
+.email-protocol-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--gray-50, #f9fafb);
+  border: 1.5px solid var(--gray-300);
+  border-radius: 8px;
+}
+
+.email-protocol-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--gray-700);
+  cursor: pointer;
+  user-select: none;
+}
+
+.email-protocol-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.email-protocol-option strong {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.email-ssl-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-top: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.email-ssl-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
 .email-config-help {
   font-size: 11px;
   color: var(--gray-400);
