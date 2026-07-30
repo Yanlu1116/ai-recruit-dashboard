@@ -1605,6 +1605,28 @@ body {
   color: var(--primary);
 }
 
+/* 关键词输入面板 */
+.email-keyword-panel {
+  padding: 8px 28px 20px;
+  border-bottom: 1px solid var(--gray-200);
+  background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+}
+
+.email-keyword-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--gray-600);
+  line-height: 1.5;
+}
+
+.email-keyword-hint svg {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
 .email-config-row {
   margin-bottom: 14px;
 }

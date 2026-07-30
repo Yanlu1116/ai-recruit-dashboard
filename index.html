@@ -293,6 +293,23 @@
         <div class="email-config-status" id="emailConfigStatus"></div>
       </div>
 
+      <!-- 关键词输入面板 -->
+      <div class="email-keyword-panel" id="emailKeywordPanel" style="display:none;">
+        <div class="email-keyword-hint">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span>输入关键词在邮件主题和正文中搜索</span>
+        </div>
+        <div class="email-config-row">
+          <label class="email-config-label">搜索关键词</label>
+          <input type="text" id="emailKeywords" placeholder="用逗号分隔，如：intern, 实习, 秋招, 简历" class="email-config-input" value="intern, 实习, 秋招, 求职">
+          <p class="email-config-help">用逗号或空格分隔多个关键词，匹配任一关键词的邮件将被列出</p>
+        </div>
+        <div class="email-config-actions">
+          <button class="btn btn-primary btn-sm" id="emailKeywordSearch">开始搜索邮箱</button>
+          <button class="btn btn-ghost btn-sm" id="emailKeywordBack">返回修改邮箱配置</button>
+        </div>
+      </div>
+
       <!-- 搜索进度指示器 -->
       <div class="email-search-progress" id="emailSearchProgress">
         <div class="email-search-spinner"></div>

@@ -2108,6 +2108,25 @@ function initEvents() {
       $('#emailCustomPort').value = e.target.checked ? 993 : 143;
     }
   });
+  // 关键词搜索按钮
+  $('#emailKeywordSearch').addEventListener('click', () => {
+    const keywords = $('#emailKeywords').value.trim() || 'intern, 实习, 秋招, 求职';
+    startRealEmailSearch(keywords);
+  });
+  // 返回修改邮箱配置
+  $('#emailKeywordBack').addEventListener('click', () => {
+    $('#emailKeywordPanel').style.display = 'none';
+    $('#emailConfigPanel').style.display = 'block';
+    $('#emailConfigStatus').textContent = '';
+    $('#emailConfigStatus').className = 'email-config-status';
+  });
+  // 关键词输入框回车搜索
+  $('#emailKeywords').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const keywords = $('#emailKeywords').value.trim() || 'intern, 实习, 秋招, 求职';
+      startRealEmailSearch(keywords);
+    }
+  });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && $('#emailModalOverlay').classList.contains('active')) {
@@ -2238,12 +2257,9 @@ async function saveEmailConfig() {
     if (data.success) {
       status.className = 'email-config-status success';
       status.textContent = '✓ ' + data.message;
-      setTimeout(() => {
-        $('#emailConfigPanel').style.display = 'none';
-        $('#emailConfigStatus').textContent = '';
-        $('#emailConfigStatus').className = 'email-config-status';
-        startRealEmailSearch();
-      }, 1200);
+      // 不自动搜索，显示关键词输入面板
+      $('#emailKeywordPanel').style.display = 'block';
+      status.textContent = '✓ ' + data.message + ' — 请输入搜索关键词';
     } else {
       status.className = 'email-config-status error';
       status.textContent = '✗ ' + (data.error || '连接失败');
@@ -2255,15 +2271,16 @@ async function saveEmailConfig() {
   }
 }
 
-async function startRealEmailSearch() {
+async function startRealEmailSearch(keywordsStr) {
   const progress = $('#emailSearchProgress');
-  const configPanel = $('#emailConfigPanel');
-  configPanel.style.display = 'none';
+  $('#emailKeywordPanel').style.display = 'none';
   progress.style.display = 'block';
-  $('#emailSearchProgressText').textContent = '正在连接邮箱并搜索实习生简历…';
+  $('#emailSearchProgressText').textContent = '正在连接邮箱并搜索匹配关键词的邮件…';
+
+  const encodedKeywords = encodeURIComponent(keywordsStr);
 
   try {
-    const resp = await fetch(`${EMAIL_API_BASE}/search-emails?keywords=intern,%E5%AE%9E%E4%B9%A0,%E7%A7%8B%E6%8B%9B,%E6%B1%82%E8%81%8C&force=true`);
+    const resp = await fetch(`${EMAIL_API_BASE}/search-emails?keywords=${encodedKeywords}&force=true`);
     const data = await resp.json();
     progress.style.display = 'none';
 
@@ -2276,8 +2293,8 @@ async function startRealEmailSearch() {
       $('#emailEmpty').style.display = 'block';
       const emptyTitle = $('#emailEmpty').querySelector('.email-empty-title');
       const emptyDesc = $('#emailEmpty').querySelector('.email-empty-desc');
-      if (emptyTitle) emptyTitle.textContent = '未找到实习生简历';
-      if (emptyDesc) emptyDesc.textContent = data.message || '邮箱中暂无匹配关键词的邮件，可尝试其他关键词';
+      if (emptyTitle) emptyTitle.textContent = '未找到匹配的邮件';
+      if (emptyDesc) emptyDesc.textContent = data.message || '邮箱中暂无匹配关键词的邮件，可返回修改关键词再试';
     }
   } catch (e) {
     progress.style.display = 'none';
@@ -2307,35 +2324,13 @@ async function openEmailImport() {
   const config = await loadEmailConfig();
 
   if (config.configured) {
-    // 已配置邮箱，直接搜索
-    progress.style.display = 'block';
-    $('#emailSearchProgressText').textContent = '正在连接邮箱搜索实习生简历…';
+    // 已配置邮箱，显示关键词输入面板
     $('#emailConfigPanel').style.display = 'none';
-
-    try {
-      const resp = await fetch(`${EMAIL_API_BASE}/search-emails?keywords=intern,%E5%AE%9E%E4%B9%A0,%E7%A7%8B%E6%8B%9B,%E6%B1%82%E8%81%8C&force=true`);
-      const data = await resp.json();
-      progress.style.display = 'none';
-
-      if (data.success && data.total > 0) {
-        emailSearchResults = data.emails;
-        results.style.display = 'block';
-        renderEmailResults(data);
-      } else {
-        empty.style.display = 'block';
-      }
-    } catch (e) {
-      // 后端不可用，回退演示
-      console.log('Email backend unavailable, falling back to demo');
-      emailDemoMode = true;
-      emailSearchResults = DEMO_EMAIL_DATA.emails;
-      progress.style.display = 'none';
-      results.style.display = 'block';
-      renderEmailResults(DEMO_EMAIL_DATA);
-    }
+    $('#emailKeywordPanel').style.display = 'block';
   } else {
-    // 未配置，显示配置面板 + 演示数据选项
+    // 未配置，显示配置面板
     $('#emailConfigPanel').style.display = 'block';
+    $('#emailKeywordPanel').style.display = 'none';
   }
 }
 
