@@ -486,7 +486,11 @@ def download_attachment_via_imap(email_id: str, attachment_filename: str) -> str
 
 # ========== POP3 实现 ==========
 def _connect_pop3(cfg: dict):
-    """连接并登录 POP3，返回 (conn, total_count)"""
+    """连接并登录 POP3，返回 (conn, total_count)
+
+    注意：不调用 getwelcome() — CoreMail 等内网服务器对此敏感，
+    二次读取 banner 会触发 Protocol error。
+    """
     if cfg.get("ssl", True):
         context = ssl.create_default_context()
         context.check_hostname = False
@@ -494,7 +498,7 @@ def _connect_pop3(cfg: dict):
         conn = poplib.POP3_SSL(cfg["server"], cfg["port"], context=context, timeout=30)
     else:
         conn = poplib.POP3(cfg["server"], cfg["port"], timeout=30)
-    conn.getwelcome()
+    # 不调用 conn.getwelcome() — poplib 构造函数已自动读取 banner
     conn.user(cfg["email"])
     conn.pass_(cfg["password"])
     stat = conn.stat()
