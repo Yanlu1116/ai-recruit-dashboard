@@ -2064,8 +2064,22 @@ function initEvents() {
   $('#emailConfigSave').addEventListener('click', saveEmailConfig);
   $('#emailConfigUseDemo').addEventListener('click', useDemoEmailData);
   $('#emailPreset').addEventListener('change', (e) => {
-    const isCustom = e.target.value === 'custom';
+    const val = e.target.value;
+    const isCustom = val === 'custom';
     $('#emailCustomServerRow').style.display = isCustom ? 'flex' : 'none';
+
+    // 国金证券自动切换到 POP3
+    if (val === 'gjzq') {
+      const pop3Radio = document.querySelector('input[name="emailProtocol"][value="pop3"]');
+      const imapRadio = document.querySelector('input[name="emailProtocol"][value="imap"]');
+      if (pop3Radio) pop3Radio.checked = true;
+      if (imapRadio) imapRadio.disabled = true;
+      $('#emailConfigHelp').textContent = '国金证券邮箱使用公司密码登录（非授权码）。服务器 email.gjzq.com.cn，POP3 端口 110，无 SSL';
+    } else {
+      const imapRadio = document.querySelector('input[name="emailProtocol"][value="imap"]');
+      if (imapRadio) imapRadio.disabled = false;
+      $('#emailConfigHelp').textContent = 'Outlook/Gmail 需使用「应用专用密码」；QQ/163 需使用「授权码」；公司内网邮箱直接用邮箱密码';
+    }
   });
   // 协议切换时自动调整默认端口
   document.querySelectorAll('input[name="emailProtocol"]').forEach(radio => {

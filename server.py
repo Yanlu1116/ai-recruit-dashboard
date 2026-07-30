@@ -89,6 +89,11 @@ EMAIL_PRESETS = {
         "pop3": {"server": "pop.139.com", "port": 995},
     },
     # 公司内网邮箱预设（IT 通知：发信SMTP 25 端口，收信POP3 110 端口）
+    "gjzq": {
+        "name": "国金证券邮箱（POP3 明文 110，不支持 IMAP）",
+        "imap": None,
+        "pop3": {"server": "email.gjzq.com.cn", "port": 110, "ssl": False},
+    },
     "corp_pop3_110": {
         "name": "公司邮箱（POP3 110 明文，常见于内网）",
         "imap": None,
