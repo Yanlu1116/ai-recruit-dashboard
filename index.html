@@ -300,9 +300,22 @@
           <span>输入关键词在邮件主题和正文中搜索</span>
         </div>
         <div class="email-config-row">
-          <label class="email-config-label">搜索关键词</label>
-          <input type="text" id="emailKeywords" placeholder="用逗号分隔，如：intern, 实习, 秋招, 简历" class="email-config-input" value="intern, 实习, 秋招, 求职">
-          <p class="email-config-help">用逗号或空格分隔多个关键词，匹配任一关键词的邮件将被列出</p>
+          <label class="email-config-label">搜索关键词 <span class="email-config-help-inline">(输入后回车添加标签)</span></label>
+          <div class="email-tag-input-wrap" id="emailTagInputWrap">
+            <div class="email-tags" id="emailTags"></div>
+            <input type="text" id="emailTagInput" placeholder="输入关键词后按回车…" class="email-tag-text-input">
+          </div>
+          <p class="email-config-help">支持多个关键词标签，匹配任一关键词的邮件将被列出</p>
+        </div>
+        <div class="email-config-row">
+          <label class="email-config-label">日期范围 <span class="email-config-help-inline">(可选，手输或选择日期)</span></label>
+          <div class="email-date-range">
+            <input type="date" id="emailStartDate" class="email-config-input email-date-input" placeholder="开始日期">
+            <span class="email-date-sep">至</span>
+            <input type="date" id="emailEndDate" class="email-config-input email-date-input" placeholder="结束日期">
+            <button class="btn btn-ghost btn-xs" id="emailClearDate" title="清除日期">清除</button>
+          </div>
+          <p class="email-config-help">设置日期范围后将只拉取该时段内的邮件。不填则拉全量。</p>
         </div>
         <div class="email-config-actions">
           <button class="btn btn-primary btn-sm" id="emailKeywordSearch">开始搜索邮箱</button>

@@ -2113,24 +2113,83 @@ function initEvents() {
     autoSelectPresetByEmail(e.target.value.trim());
   });
 
+  // ====== 标签输入逻辑 ======
+  const tagInput = $('#emailTagInput');
+  const tagContainer = $('#emailTags');
+  let emailTags = ['intern', '实习', '秋招', '求职'];
+
+  function renderEmailTags() {
+    tagContainer.innerHTML = emailTags.map((tag, i) =>
+      `<span class="email-tag">${escapeHtml(tag)}<button type="button" class="email-tag-remove" data-index="${i}" title="移除">×</button></span>`
+    ).join('');
+  }
+
+  function addEmailTag(tag) {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    if (emailTags.includes(trimmed)) return;
+    emailTags.push(trimmed);
+    renderEmailTags();
+  }
+
+  function removeEmailTag(index) {
+    emailTags.splice(index, 1);
+    renderEmailTags();
+  }
+
+  tagInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addEmailTag(e.target.value);
+      e.target.value = '';
+    }
+    if (e.key === 'Backspace' && e.target.value === '' && emailTags.length > 0) {
+      emailTags.pop();
+      renderEmailTags();
+    }
+  });
+
+  // 处理粘贴（支持逗号分隔批量粘贴）
+  tagInput.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const pasted = (e.clipboardData || window.clipboardData).getData('text');
+    if (!pasted) return;
+    const tags = pasted.split(/[,，、\s]+/).filter(Boolean);
+    tags.forEach(t => addEmailTag(t));
+  });
+
+  // 点击标签区域聚焦输入框
+  tagContainer.addEventListener('click', (e) => {
+    if (e.target.classList.contains('email-tag-remove')) {
+      const idx = parseInt(e.target.dataset.index);
+      removeEmailTag(idx);
+    } else {
+      tagInput.focus();
+    }
+  });
+  renderEmailTags();
+
   // 关键词搜索按钮
   $('#emailKeywordSearch').addEventListener('click', () => {
-    const keywords = $('#emailKeywords').value.trim() || 'intern, 实习, 秋招, 求职';
-    startRealEmailSearch(keywords);
+    if (emailTags.length === 0) return;
+    const keywordsStr = emailTags.join(',');
+    const startDate = $('#emailStartDate').value || '';
+    const endDate = $('#emailEndDate').value || '';
+    startRealEmailSearch(keywordsStr, startDate, endDate);
   });
+
+  // 清除日期按钮
+  $('#emailClearDate').addEventListener('click', () => {
+    $('#emailStartDate').value = '';
+    $('#emailEndDate').value = '';
+  });
+
   // 返回修改邮箱配置
   $('#emailKeywordBack').addEventListener('click', () => {
     $('#emailKeywordPanel').style.display = 'none';
     $('#emailConfigPanel').style.display = 'block';
     $('#emailConfigStatus').textContent = '';
     $('#emailConfigStatus').className = 'email-config-status';
-  });
-  // 关键词输入框回车搜索
-  $('#emailKeywords').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const keywords = $('#emailKeywords').value.trim() || 'intern, 实习, 秋招, 求职';
-      startRealEmailSearch(keywords);
-    }
   });
 
   document.addEventListener('keydown', (e) => {
@@ -2314,16 +2373,19 @@ async function saveEmailConfig() {
   }
 }
 
-async function startRealEmailSearch(keywordsStr) {
+async function startRealEmailSearch(keywordsStr, startDate, endDate) {
   const progress = $('#emailSearchProgress');
   $('#emailKeywordPanel').style.display = 'none';
   progress.style.display = 'block';
   $('#emailSearchProgressText').textContent = '正在连接邮箱并搜索匹配关键词的邮件…';
 
-  const encodedKeywords = encodeURIComponent(keywordsStr);
+  const params = new URLSearchParams();
+  params.set('keywords', keywordsStr);
+  if (startDate) params.set('start_date', startDate);
+  if (endDate) params.set('end_date', endDate);
 
   try {
-    const resp = await fetch(`${EMAIL_API_BASE}/search-emails?keywords=${encodedKeywords}&force=true`);
+    const resp = await fetch(`${EMAIL_API_BASE}/search-emails?${params.toString()}`);
     const data = await resp.json();
     progress.style.display = 'none';
 

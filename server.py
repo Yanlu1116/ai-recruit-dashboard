@@ -28,7 +28,7 @@ import imaplib
 import email
 import re
 import ssl
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
@@ -313,6 +313,38 @@ def text_contains_keyword(text: str, keywords: list[str]) -> bool:
     return False
 
 
+def _parse_date_param(date_str: str) -> datetime | None:
+    """将 ISO 日期字符串（如 "2026-07-01"）解析为 datetime，失败则返回 None"""
+    if not date_str:
+        return None
+    try:
+        # 支持 "2026-07-01" 和 "2026-07-01T00:00:00" 两种格式
+        return datetime.fromisoformat(date_str.strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def _email_date_in_range(email_date_str: str, start_dt: datetime | None, end_dt: datetime | None) -> bool:
+    """判断邮件日期是否在指定范围内"""
+    if start_dt is None and end_dt is None:
+        return True
+    try:
+        email_dt = parsedate_to_datetime(email_date_str)
+        # 去除时区信息，统一使用 naive datetime 比较
+        if email_dt.tzinfo is not None:
+            email_dt = email_dt.replace(tzinfo=None)
+    except Exception:
+        return True  # 解析失败不排除
+    if start_dt and email_dt < start_dt:
+        return False
+    if end_dt:
+        # end_date 设为当天 23:59:59，包含整天
+        end_of_day = end_dt.replace(hour=23, minute=59, second=59)
+        if email_dt > end_of_day:
+            return False
+    return True
+
+
 # ========== IMAP 实现 ==========
 def _connect_imap(cfg: dict):
     """连接并登录 IMAP，返回连接对象"""
@@ -398,7 +430,13 @@ def _parse_email_message(msg_bytes: bytes) -> dict:
     }
 
 
-def search_emails_via_imap(keywords: list[str], max_results: int = 50) -> dict:
+def search_emails_via_imap(keywords: list[str], max_results: int = 500, start_date: str = None, end_date: str = None) -> dict:
+    """
+    通过 IMAP 搜索邮箱中的简历邮件。
+    start_date / end_date: ISO 日期字符串，如 "2026-07-01"。
+    """
+    start_dt = _parse_date_param(start_date)
+    end_dt = _parse_date_param(end_date)
     cfg = get_email_config()
     if not cfg or cfg["protocol"] != "imap":
         return {"success": False, "error": "未配置 IMAP 邮箱", "emails": [], "total": 0}
@@ -408,16 +446,26 @@ def search_emails_via_imap(keywords: list[str], max_results: int = 50) -> dict:
         try:
             # 搜索邮件
             all_msg_ids = set()
+
+            # 构建日期搜索条件
+            date_criteria = ""
+            if start_dt:
+                date_criteria += f' SINCE {start_dt.strftime("%d-%b-%Y")}'
+            if end_dt:
+                date_criteria += f' BEFORE {(end_dt + timedelta(days=1)).strftime("%d-%b-%Y")}'
+
             for kw in keywords:
                 for field in ["SUBJECT", "BODY"]:
                     try:
-                        search_criteria = f'({field} "{kw}")'
-                        status, data = conn.search(None, "CHARSET", "UTF-8", search_criteria)
+                        search_criteria = f'({field} "{kw}"{date_criteria})'
+                        status, data = conn.search(None, search_criteria)
                         if status == "OK" and data[0]:
                             ids = data[0].split()
                             all_msg_ids.update(id.decode() for id in ids)
                     except Exception:
+                        # 降级：不带日期条件重试
                         try:
+                            search_criteria = f'({field} "{kw}")'
                             status, data = conn.search(None, search_criteria)
                             if status == "OK" and data[0]:
                                 ids = data[0].split()
@@ -445,6 +493,9 @@ def search_emails_via_imap(keywords: list[str], max_results: int = 50) -> dict:
                     if status != "OK" or not msg_data[0]:
                         continue
                     info = _parse_email_message(msg_data[0][1])
+                    # 日期后过滤（兼容不支持 SINCE/BEFORE 的服务器）
+                    if (start_dt or end_dt) and not _email_date_in_range(info.get("date", ""), start_dt, end_dt):
+                        continue
                     emails.append({
                         "id": f"imap_{msg_id.decode() if isinstance(msg_id, bytes) else msg_id}",
                         **info,
@@ -624,14 +675,18 @@ def _safe_filename(filename: str) -> str:
     return hashlib.md5(filename.encode()).hexdigest()[:8] + "_" + re.sub(r'[\\/:*?"<>|]', '_', filename)
 
 
-def search_emails_via_pop3(keywords: list[str], max_results: int = 50) -> dict:
+def search_emails_via_pop3(keywords: list[str], max_results: int = 500, start_date: str = None, end_date: str = None) -> dict:
     """
     通过 POP3 搜索邮箱中的简历邮件。
     POP3 没有服务器端搜索，必须拉取所有邮件头在本地过滤。
+    start_date / end_date: ISO 日期字符串，如 "2026-07-01"。
     """
     cfg = get_email_config()
     if not cfg or cfg["protocol"] != "pop3":
         return {"success": False, "error": "未配置 POP3 邮箱", "emails": [], "total": 0}
+
+    start_dt = _parse_date_param(start_date)
+    end_dt = _parse_date_param(end_date)
 
     try:
         conn, total = _connect_pop3(cfg)
@@ -678,6 +733,10 @@ def search_emails_via_pop3(keywords: list[str], max_results: int = 50) -> dict:
                 # 关键词过滤（subject + from）
                 combined = f"{subject} {from_addr}"
                 if not text_contains_keyword(combined, keywords):
+                    continue
+
+                # 日期过滤
+                if (start_dt or end_dt) and not _email_date_in_range(date_str, start_dt, end_dt):
                     continue
 
                 matched.append({
@@ -972,18 +1031,22 @@ def email_test():
 # ========== API: 搜索邮箱简历 ==========
 @app.route("/api/search-emails", methods=["GET"])
 def search_emails():
-    """搜索邮箱中的实习生简历"""
+    """搜索邮箱中的实习生简历。支持关键词 + 日期范围过滤。"""
     keywords_str = request.args.get("keywords", ",".join(DEFAULT_KEYWORDS))
     keywords = [kw.strip() for kw in keywords_str.split(",") if kw.strip()]
+    start_date = request.args.get("start_date", None)
+    end_date = request.args.get("end_date", None)
+    start_dt = _parse_date_param(start_date)
+    end_dt = _parse_date_param(end_date)
 
     cfg = get_email_config()
 
     if cfg:
         # 有邮箱配置 → 走协议搜索
         if cfg["protocol"] == "imap":
-            result = search_emails_via_imap(keywords)
+            result = search_emails_via_imap(keywords, start_date=start_date, end_date=end_date)
         else:
-            result = search_emails_via_pop3(keywords)
+            result = search_emails_via_pop3(keywords, start_date=start_date, end_date=end_date)
 
         if result["success"]:
             # 缓存搜索结果
@@ -1017,12 +1080,17 @@ def search_emails():
     for email_data in meta.get("emails", []):
         subject = email_data.get("subject", "").lower()
         snippet = email_data.get("snippet", "").lower()
-        if any(kw.lower() in subject or kw.lower() in snippet for kw in keywords):
-            for att in email_data.get("attachments", []):
-                txt_path = get_resume_text_path(email_data.get("id", ""))
-                att["downloaded"] = txt_path.exists()
-                att["extracted_chars"] = len(txt_path.read_text(encoding="utf-8")) if txt_path.exists() else 0
-            matching.append(email_data)
+        # 关键词过滤
+        if not any(kw.lower() in subject or kw.lower() in snippet for kw in keywords):
+            continue
+        # 日期过滤
+        if (start_dt or end_dt) and not _email_date_in_range(email_data.get("date", ""), start_dt, end_dt):
+            continue
+        for att in email_data.get("attachments", []):
+            txt_path = get_resume_text_path(email_data.get("id", ""))
+            att["downloaded"] = txt_path.exists()
+            att["extracted_chars"] = len(txt_path.read_text(encoding="utf-8")) if txt_path.exists() else 0
+        matching.append(email_data)
 
     return jsonify({
         "success": True,
