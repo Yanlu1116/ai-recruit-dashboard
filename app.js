@@ -2256,10 +2256,13 @@ async function saveEmailConfig() {
     const data = await resp.json();
     if (data.success) {
       status.className = 'email-config-status success';
-      status.textContent = '✓ ' + data.message;
-      // 不自动搜索，显示关键词输入面板
-      $('#emailKeywordPanel').style.display = 'block';
-      status.textContent = '✓ ' + data.message + ' — 请输入搜索关键词';
+      // 隐藏配置面板，显示关键词输入面板
+      setTimeout(() => {
+        $('#emailConfigPanel').style.display = 'none';
+        $('#emailKeywordPanel').style.display = 'block';
+        $('#emailConfigStatus').textContent = '';
+        $('#emailConfigStatus').className = 'email-config-status';
+      }, 800);
     } else {
       status.className = 'email-config-status error';
       status.textContent = '✗ ' + (data.error || '连接失败');
