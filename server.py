@@ -588,20 +588,18 @@ def search_emails_via_pop3(keywords: list[str], max_results: int = 50) -> dict:
 
     try:
         # POP3 邮件 ID 从 1 开始，越大越新
-        # 为了节省流量，先用 TOP 只取头部（subject/from/date + 摘要）
         all_ids = list(range(1, total + 1))
         # 只看最近 max_results 封
         if len(all_ids) > max_results:
             all_ids = all_ids[-max_results:]
 
-        # 第一遍：只取头部，关键词过滤
+        # 第一遍：获取邮件 header 进行关键词过滤
+        # 不用 TOP（部分内网 POP3 服务器不支持或行为异常），改用 RETR 获取完整邮件
         matched = []
         for msg_num in all_ids:
             try:
-                # TOP n 0 = 只取 header，不取 body
-                response, lines, size = conn.top(msg_num, 0)
+                response, lines, size = conn.retr(msg_num)
                 msg_bytes = b"\n".join(lines)
-                # 用 email parser 解析 header 部分
                 header_msg = email.message_from_bytes(msg_bytes)
                 subject = decode_email_header(header_msg.get("Subject", "(无主题)"))
                 from_addr = decode_email_address(header_msg.get("From", ""))
