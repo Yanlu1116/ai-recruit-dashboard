@@ -593,12 +593,17 @@ def search_emails_via_pop3(keywords: list[str], max_results: int = 50) -> dict:
         if len(all_ids) > max_results:
             all_ids = all_ids[-max_results:]
 
-        # 第一遍：获取邮件 header 进行关键词过滤
-        # 不用 TOP（部分内网 POP3 服务器不支持或行为异常），改用 RETR 获取完整邮件
+        # 第一遍：只取邮件 header，用关键词过滤
         matched = []
         for msg_num in all_ids:
             try:
-                response, lines, size = conn.retr(msg_num)
+                # POP3 TOP 命令：取邮件 header + 前 N 行正文
+                # 先用 TOP 0（只取 header），节省流量
+                try:
+                    response, lines, size = conn.top(msg_num, 0)
+                except poplib.error_proto:
+                    # CoreMail 等服务器可能不支持 TOP 0，降级用 RETR 获取完整邮件
+                    response, lines, size = conn.retr(msg_num)
                 msg_bytes = b"\n".join(lines)
                 header_msg = email.message_from_bytes(msg_bytes)
                 subject = decode_email_header(header_msg.get("Subject", "(无主题)"))
