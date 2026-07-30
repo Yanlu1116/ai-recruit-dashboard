@@ -2108,6 +2108,11 @@ function initEvents() {
       $('#emailCustomPort').value = e.target.checked ? 993 : 143;
     }
   });
+  // 邮箱地址输入时自动推荐预设
+  $('#emailAddr').addEventListener('input', (e) => {
+    autoSelectPresetByEmail(e.target.value.trim());
+  });
+
   // 关键词搜索按钮
   $('#emailKeywordSearch').addEventListener('click', () => {
     const keywords = $('#emailKeywords').value.trim() || 'intern, 实习, 秋招, 求职';
@@ -2205,6 +2210,36 @@ let emailDemoMode = false;
 let emailConfigLoaded = false;
 
 /* ---- 邮箱配置 ---- */
+function autoSelectPresetByEmail(email) {
+  if (!email || !email.includes('@')) return;
+  const domain = email.split('@')[1].toLowerCase();
+  const map = {
+    'outlook.com': 'outlook', 'hotmail.com': 'outlook', 'live.com': 'outlook', 'outlook.cn': 'outlook',
+    'gmail.com': 'gmail',
+    'qq.com': 'qq',
+    '163.com': '163',
+    '126.com': '126',
+    'sina.com': 'sina', 'sina.cn': 'sina',
+    'sohu.com': 'sohu',
+    '139.com': '139',
+    'gjzq.com.cn': 'gjzq',
+  };
+  let preset = '';
+  for (const [suffix, key] of Object.entries(map)) {
+    if (domain === suffix || domain.endsWith('.' + suffix)) {
+      preset = key;
+      break;
+    }
+  }
+  if (!preset) return;
+  const presetSelect = $('#emailPreset');
+  if (presetSelect && presetSelect.value !== preset) {
+    presetSelect.value = preset;
+    // 触发 change 事件以更新协议提示
+    presetSelect.dispatchEvent(new Event('change'));
+  }
+}
+
 async function loadEmailConfig() {
   try {
     const resp = await fetch(`${EMAIL_API_BASE}/email-config`);
@@ -2256,16 +2291,21 @@ async function saveEmailConfig() {
     const data = await resp.json();
     if (data.success) {
       status.className = 'email-config-status success';
+      if (data.warning) {
+        status.textContent = '✓ ' + (data.message || '连接成功') + ' \n' + data.warning;
+      }
       // 隐藏配置面板，显示关键词输入面板
       setTimeout(() => {
         $('#emailConfigPanel').style.display = 'none';
         $('#emailKeywordPanel').style.display = 'block';
         $('#emailConfigStatus').textContent = '';
         $('#emailConfigStatus').className = 'email-config-status';
-      }, 800);
+      }, data.warning ? 2000 : 800);
     } else {
       status.className = 'email-config-status error';
-      status.textContent = '✗ ' + (data.error || '连接失败');
+      let msg = '✗ ' + (data.error || '连接失败');
+      if (data.hint) msg += '\n' + data.hint;
+      status.textContent = msg;
     }
   } catch (e) {
     status.className = 'email-config-status error';

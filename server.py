@@ -106,6 +106,40 @@ EMAIL_PRESETS = {
     },
 }
 
+# 根据邮箱后缀自动推荐预设（用于前端/后端校验）
+EMAIL_DOMAIN_PRESETS = {
+    "outlook.com": "outlook",
+    "hotmail.com": "outlook",
+    "live.com": "outlook",
+    "outlook.cn": "outlook",
+    "gmail.com": "gmail",
+    "qq.com": "qq",
+    "163.com": "163",
+    "126.com": "126",
+    "sina.com": "sina",
+    "sina.cn": "sina",
+    "sohu.com": "sohu",
+    "139.com": "139",
+    "gjzq.com.cn": "gjzq",
+}
+
+
+def _suggest_preset_by_email(email_addr: str) -> str:
+    """根据邮箱后缀推荐预设"""
+    email_lower = email_addr.lower().strip()
+    if "@" not in email_lower:
+        return ""
+    domain = email_lower.split("@", 1)[1]
+    # 先完整匹配
+    if domain in EMAIL_DOMAIN_PRESETS:
+        return EMAIL_DOMAIN_PRESETS[domain]
+    # 再尝试子域匹配（如 xxx.outlook.com）
+    for suffix, preset in EMAIL_DOMAIN_PRESETS.items():
+        if domain.endswith("." + suffix):
+            return preset
+    return ""
+
+
 app = Flask(__name__)
 
 
@@ -485,24 +519,103 @@ def download_attachment_via_imap(email_id: str, attachment_filename: str) -> str
 
 
 # ========== POP3 实现 ==========
+class _POP3SSLCompat(poplib.POP3_SSL):
+    """支持自定义 server_hostname（可禁用 SNI）的 POP3_SSL 子类"""
+    def __init__(self, host, port=995, timeout=30, context=None, server_hostname=None):
+        self._server_hostname = server_hostname
+        super().__init__(host, port, timeout=timeout, context=context)
+
+    def _create_socket(self, timeout):
+        sock = poplib.POP3._create_socket(self, timeout)
+        sock = self.context.wrap_socket(sock, server_hostname=self._server_hostname)
+        return sock
+
+
+def _make_ssl_context(tls_mode: str = "default"):
+    """创建 SSL 上下文
+    tls_mode: default | legacy
+    legacy 允许 TLS 1.0/1.1，用于兼容旧版 CoreMail
+    """
+    if tls_mode == "legacy":
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.minimum_version = ssl.TLSVersion.MIN_TLSv1
+        context.maximum_version = ssl.TLSVersion.MAX_TLSv1_2
+    else:
+        context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
+
+
 def _connect_pop3(cfg: dict):
     """连接并登录 POP3，返回 (conn, total_count)
 
-    注意：不调用 getwelcome() — CoreMail 等内网服务器对此敏感，
-    二次读取 banner 会触发 Protocol error。
+    针对 CoreMail/Exchange 等服务器做了兼容处理：
+    - 自动尝试完整邮箱地址和纯用户名两种登录格式
+    - SSL 模式下依次尝试：标准 SSL、禁用 SNI、兼容 TLS 1.0/1.1
+    - 明文模式下依次尝试：直接 POP3、STARTTLS
     """
-    if cfg.get("ssl", True):
-        context = ssl.create_default_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        conn = poplib.POP3_SSL(cfg["server"], cfg["port"], context=context, timeout=30)
+    server = cfg["server"]
+    port = cfg["port"]
+    email_addr = cfg["email"]
+    password = cfg["password"]
+    use_ssl = cfg.get("ssl", True)
+
+    # 候选用户名（某些服务器只接受纯用户名）
+    candidates = [email_addr]
+    if "@" in email_addr:
+        local_part = email_addr.split("@", 1)[0]
+        if local_part and local_part != email_addr:
+            candidates.append(local_part)
+
+    # 准备连接策略
+    strategies = []
+    if use_ssl:
+        strategies.append(("POP3_SSL", lambda: _POP3SSLCompat(server, port, timeout=30, context=_make_ssl_context("default"), server_hostname=server)))
+        strategies.append(("POP3_SSL(禁用SNI)", lambda: _POP3SSLCompat(server, port, timeout=30, context=_make_ssl_context("default"), server_hostname=None)))
+        strategies.append(("POP3_SSL(兼容旧TLS)", lambda: _POP3SSLCompat(server, port, timeout=30, context=_make_ssl_context("legacy"), server_hostname=None)))
     else:
-        conn = poplib.POP3(cfg["server"], cfg["port"], timeout=30)
-    # 不调用 conn.getwelcome() — poplib 构造函数已自动读取 banner
-    conn.user(cfg["email"])
-    conn.pass_(cfg["password"])
-    stat = conn.stat()
-    return conn, stat[0]
+        strategies.append(("POP3明文", lambda: poplib.POP3(server, port, timeout=30)))
+        strategies.append(("POP3+STARTTLS", lambda: _pop3_starttls(server, port)))
+
+    last_error = None
+    for strategy_name, create_conn in strategies:
+        for login_user in candidates:
+            conn = None
+            try:
+                conn = create_conn()
+                conn.user(login_user)
+                conn.pass_(password)
+                msg_count, _ = conn.stat()
+                return conn, msg_count
+            except poplib.error_proto as e:
+                err = str(e).lower()
+                # 认证类错误直接抛出，不再尝试其他策略
+                if any(k in err for k in ["logon", "login", "auth", "password", "unable to log", "account", "disabled", "forbid"]):
+                    raise poplib.error_proto(f"{strategy_name} 登录失败: {e}")
+                last_error = f"{strategy_name}（用户 {login_user}）: {e}"
+                try:
+                    if conn:
+                        conn.quit()
+                except Exception:
+                    pass
+            except Exception as e:
+                last_error = f"{strategy_name}（用户 {login_user}）: {type(e).__name__}: {e}"
+                try:
+                    if conn:
+                        conn.quit()
+                except Exception:
+                    pass
+
+    raise poplib.error_proto(last_error or "POP3 连接失败（所有兼容策略均失败）")
+
+
+def _pop3_starttls(server, port):
+    """建立明文 POP3 连接后升级到 TLS"""
+    conn = poplib.POP3(server, port, timeout=30)
+    context = _make_ssl_context("default")
+    conn.stls(context=context)
+    return conn
 
 
 def _safe_filename(filename: str) -> str:
@@ -687,11 +800,14 @@ def get_email_config_api():
             "imap": val.get("imap"),
             "pop3": val.get("pop3"),
         }
+    email_addr = cfg["email"] if cfg else ""
+    suggested_preset = _suggest_preset_by_email(email_addr)
     return jsonify({
         "configured": bool(cfg),
         "preset": config.get("preset", ""),
+        "suggested_preset": suggested_preset,
         "protocol": cfg["protocol"] if cfg else "",
-        "email": cfg["email"] if cfg else "",
+        "email": email_addr,
         "server": cfg["server"] if cfg else "",
         "port": cfg["port"] if cfg else 0,
         "ssl": cfg.get("ssl", True) if cfg else True,
@@ -717,6 +833,17 @@ def set_email_config():
         return jsonify({"success": False, "error": "请输入邮箱地址"}), 400
     if not password:
         return jsonify({"success": False, "error": "请输入授权码/密码"}), 400
+
+    # 根据邮箱后缀智能推荐预设
+    suggested_preset = _suggest_preset_by_email(email_addr)
+    mismatch_warning = ""
+    if preset and preset in EMAIL_PRESETS and suggested_preset and preset != suggested_preset:
+        expected_name = EMAIL_PRESETS[suggested_preset]["name"]
+        selected_name = EMAIL_PRESETS[preset]["name"]
+        mismatch_warning = (
+            f"提示：邮箱后缀建议使用「{expected_name}」，"
+            f"但当前选择的是「{selected_name}」。"
+        )
 
     config = {
         "preset": preset if preset in EMAIL_PRESETS else "",
@@ -752,6 +879,13 @@ def set_email_config():
 
     # 快速测试连接
     test_result = test_connection()
+    if mismatch_warning:
+        if test_result.get("success"):
+            test_result["warning"] = mismatch_warning + "当前连接已成功，但请确认服务器是否匹配。"
+        else:
+            test_result["error"] = (mismatch_warning + "\n" + test_result.get("error", "")).strip()
+            test_result["hint"] = "请检查「邮箱类型」是否与邮箱后缀匹配。"
+
     if not test_result["success"]:
         # 测试失败但保留配置（用户可能用明文 110 端口测试不通过但实际能用）
         # 不过还是返回错误让用户知道
@@ -794,6 +928,30 @@ def test_connection() -> dict:
                 "success": True,
                 "message": f"POP3 连接成功！收件箱共 {total} 封邮件",
                 "total_emails": total,
+            }
+        except socket.timeout:
+            return {
+                "success": False,
+                "error": f"POP3 连接 {cfg['server']}:{cfg['port']} 超时。",
+                "hint": "若为公司内网邮箱（如 gjzq.com.cn），云端服务器（Render）通常无法访问，请在本地运行。",
+            }
+        except ssl.SSLError as e:
+            return {
+                "success": False,
+                "error": f"POP3 SSL/TLS 握手失败: {e}",
+                "hint": "可尝试切换为明文 POP3（端口 110，取消 SSL），或检查服务器是否支持当前 TLS 版本。",
+            }
+        except poplib.error_proto as e:
+            err = str(e).lower()
+            hint = ""
+            if "protocol" in err:
+                hint = "服务器返回 Protocol error，可能是 SSL/TLS 不兼容、服务器不支持 POP3，或端口配置错误。可尝试明文 110 端口。"
+            elif any(k in err for k in ["logon", "login", "auth", "password", "unable to log"]):
+                hint = "账号或密码/授权码错误。QQ/163 需使用授权码，Outlook/Gmail 需使用应用专用密码。"
+            return {
+                "success": False,
+                "error": f"POP3 连接测试失败: {e}",
+                "hint": hint,
             }
         except Exception as e:
             return {"success": False, "error": f"POP3 连接测试失败: {e}"}
