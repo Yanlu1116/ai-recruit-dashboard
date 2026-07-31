@@ -767,7 +767,12 @@ def search_emails_via_pop3(
                     msg_bytes = b"\n".join(lines)
                     full_info = _parse_email_message(msg_bytes)
                     combined2 = f"{full_info['subject']} {full_info['from']} {full_info['snippet']}"
-                    if not text_contains_keyword(combined2, keywords):
+                    # 二次过滤：正文匹配 OR 附件是简历文件（pdf/doc/docx）即自动纳入
+                    has_resume_attachment = any(
+                        is_resume_attachment(a["filename"], a.get("mime_type", ""))
+                        for a in full_info.get("attachments", [])
+                    )
+                    if not text_contains_keyword(combined2, keywords) and not has_resume_attachment:
                         continue
                     emails.append({
                         "id": f"pop3_{msg_num}",
