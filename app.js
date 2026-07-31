@@ -2203,19 +2203,23 @@ async function startRealEmailSearch(keywordsStr, startDate, endDate, scanLimit =
   const progress = $('#emailSearchProgress');
   $('#emailKeywordPanel').style.display = 'none';
   progress.style.display = 'block';
-  $('#emailSearchProgressText').textContent = `正在连接邮箱，从最近 ${scanLimit} 封邮件中搜索…`;
+
+  const scanAll = scanLimit <= 0;
+  $('#emailSearchProgressText').textContent = scanAll
+    ? '正在连接邮箱，扫描全部邮件（不限数量）…'
+    : `正在连接邮箱，从最近 ${scanLimit} 封邮件中搜索…`;
 
   const params = new URLSearchParams();
   params.set('keywords', keywordsStr);
   if (startDate) params.set('start_date', startDate);
   if (endDate) params.set('end_date', endDate);
   params.set('scan_limit', String(scanLimit));
-  // 匹配上限跟随扫描范围，最大 30 条足够展示
-  params.set('match_limit', '30');
+  // 扫描全部时不限制匹配数量；否则限制 30 条足够展示
+  params.set('match_limit', scanAll ? '0' : '30');
 
-  // Render 免费版 30 秒超时，前端给 28 秒保护；后端会在 23 秒内主动返回部分结果
+  // 扫描全部时不设前端超时限制；普通模式 28 秒保护
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 28000);
+  const timeoutId = scanAll ? null : setTimeout(() => controller.abort(), 28000);
 
   try {
     const resp = await fetch(`${EMAIL_API_BASE}/search-emails?${params.toString()}`, {

@@ -722,9 +722,17 @@ def search_emails_via_pop3(
     started = False
     time_exceeded = False
 
+    # scan_limit=0 表示扫描全部邮件，同时解除时间限制
+    scan_all = scan_limit <= 0
+    if scan_all:
+        max_time_seconds = 3600.0  # 1 小时，足够本地环境扫完全部
+        scan_limit = total
+    # match_limit=0 表示不限制匹配数量
+    match_unlimited = match_limit <= 0
+
     try:
         # 从新到旧扫描：msg_num 越大越新
-        start_num = max(1, total - scan_limit + 1)
+        start_num = 1 if scan_all else max(1, total - scan_limit + 1)
         for msg_num in range(total, start_num - 1, -1):
             # 时间保护：接近 Render 30 秒上限时提前返回
             if time.time() - begin_time > max_time_seconds:
@@ -778,7 +786,7 @@ def search_emails_via_pop3(
                         "has_attachments": False,
                     })
 
-                if len(emails) >= match_limit:
+                if not match_unlimited and len(emails) >= match_limit:
                     break
             except Exception as e:
                 print(f"POP3 解析邮件 #{msg_num} 出错: {e}", file=sys.stderr)
