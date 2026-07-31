@@ -789,7 +789,7 @@ function renderFileList() {
 }
 
 function updateAnalysisButton() {
-  const hasReady = state.resumes.some(r => r.status === 'ready' || r.status === 'demo');
+  const hasReady = state.resumes.some(r => r.status === 'ready');
   $('#startAnalysis').disabled = !hasReady;
 }
 
@@ -837,13 +837,13 @@ async function runAnalysis() {
       }
     }
     if (i === steps.length - 2) {
-      const readyResumes = state.resumes.filter(r => r.status === 'ready' || r.status === 'demo');
+      const readyResumes = state.resumes.filter(r => r.status === 'ready');
       for (const resume of readyResumes) {
         resume.scores = scoreResume(resume.text, state.jdAnalysis);
       }
     }
     if (i === steps.length - 1) {
-      const readyResumes = state.resumes.filter(r => r.status === 'ready' || r.status === 'demo');
+      const readyResumes = state.resumes.filter(r => r.status === 'ready');
       for (const resume of readyResumes) {
         resume.questions = generateInterviewQuestions(resume, state.jdAnalysis);
       }
@@ -1786,165 +1786,6 @@ const DEMO_JD = `岗位名称：高级 Python 后端工程师
 7. 具备良好的沟通能力和团队协作精神，有项目管理经验优先
 8. 有大数据处理经验（Spark、Hadoop）者优先`;
 
-const DEMO_RESUMES = [
-  {
-    name: '张明.pdf',
-    text: `张明
-高级 Python 后端工程师
-
-联系方式：zhangming@email.com | 138-0000-0001 | 上海
-
-个人简介
-拥有7年 Python 后端开发经验，精通 Django 和 Flask 框架。曾主导多个大型微服务系统的架构设计与落地，具备丰富的 Docker、Kubernetes 实践经验。熟悉 MySQL、Redis、PostgreSQL 等数据库，有 Elasticsearch 和 Kafka 使用经验。
-
-教育背景
-2011.09 - 2015.06  上海交通大学  计算机科学与技术  本科
-
-工作经历
-2021.03 - 至今    某互联网科技公司    高级后端工程师
-- 负责核心交易系统后端架构设计，使用 Python + Django 重构旧系统
-- 主导微服务拆分，使用 Docker 和 Kubernetes 部署 20+ 微服务
-- 设计 MySQL 分库分表方案，Redis 缓存策略，系统 QPS 提升 5 倍
-- 搭建 Jenkins CI/CD 流水线，部署效率提升 80%
-- 使用 Elasticsearch 构建日志搜索平台，Kafka 处理异步消息
-- 指导 3 名中级开发工程师，参与团队 Code Review
-
-2018.07 - 2021.02    某金融科技公司    Python 后端工程师
-- 使用 Flask 开发 RESTful API，服务日活百万级用户
-- MySQL 数据库性能优化，慢查询从 500ms 降到 50ms
-- Redis 缓存设计，热点数据命中率 95%+
-- Nginx 反向代理配置与负载均衡
-- 参与 Spark 大数据处理，处理 TB 级数据
-
-2015.07 - 2018.06    某创业公司    后端开发工程师
-- 使用 Python 开发后台管理系统
-- MySQL 数据库设计与维护
-- 基础 Linux 运维工作
-
-技术栈
-编程语言：Python, JavaScript, Shell
-后端框架：Django, Flask, FastAPI, Tornado
-数据库：MySQL, Redis, PostgreSQL, Elasticsearch, MongoDB
-云与运维：Docker, Kubernetes, Jenkins, Nginx, Linux, CI/CD, 微服务
-大数据：Spark, Hadoop, Kafka
-版本控制：Git, GitLab
-
-项目管理
-- 带领 5 人团队完成交易系统重构项目
-- 敏捷开发实践，Scrum 流程推进
-- 跨部门协作，与产品、前端、测试团队紧密配合`
-  },
-  {
-    name: '李华.pdf',
-    text: `李华
-全栈开发工程师
-
-联系方式：lihua@email.com | 138-0000-0002 | 北京
-
-个人简介
-4年全栈开发经验，熟悉 Python 后端和 React 前端开发。有微服务和容器化经验，熟悉 MySQL 和 Redis。
-
-教育背景
-2016.09 - 2020.06  某普通一本院校  软件工程  本科
-
-工作经历
-2022.01 - 至今    某电商公司    全栈工程师
-- 使用 Python + Django 开发后端 API
-- React 前端开发，Vue 项目维护
-- MySQL 数据库设计，Redis 缓存使用
-- Docker 容器化部署，了解 Kubernetes
-- 使用 Git 进行版本管理，GitLab CI 基础使用
-- 与团队协作完成多个功能模块开发
-
-2020.07 - 2021.12    某软件公司    后端开发工程师
-- Flask 后端 API 开发
-- MySQL 数据库操作和优化
-- Linux 服务器基础运维
-- 参与团队 Code Review
-
-技术栈
-编程语言：Python, JavaScript, TypeScript
-后端框架：Django, Flask, Express
-前端：React, Vue, HTML, CSS
-数据库：MySQL, Redis, MongoDB
-工具：Docker, Git, Linux, Nginx
-其他：RESTful API, 敏捷开发`
-  },
-  {
-    name: '王芳.pdf',
-    text: `王芳
-前端开发工程师
-
-联系方式：wangfang@email.com | 138-0000-0003 | 杭州
-
-个人简介
-2年前端开发经验，熟悉 React 和 Vue 框架。对 Python 后端有基础了解，希望向前端方向发展。
-
-教育背景
-2018.09 - 2022.06  某二本院校  信息管理  本科
-
-工作经历
-2022.07 - 至今    某互联网公司    前端开发工程师
-- React 前端页面开发
-- Vue 项目维护和 Bug 修复
-- HTML/CSS 页面制作
-- 与后端对接 API
-
-实习经历
-2021.12 - 2022.06    某创业公司    前端实习生
-- 使用 Vue 开发管理后台
-- HTML 和 CSS 页面布局
-- JavaScript 交互效果实现
-
-技术栈
-编程语言：JavaScript, HTML, CSS, 基础 Python
-前端框架：React, Vue
-数据库：了解 MySQL
-工具：Git, Webpack
-其他：微信小程序`
-  },
-  {
-    name: '刘强.pdf',
-    text: `刘强
-数据工程师 / Python 开发
-
-联系方式：liuqiang@email.com | 138-0000-0004 | 深圳
-
-个人简介
-6年数据工程和 Python 开发经验。专注于大数据处理和数据平台建设，有 Spark 和 Hadoop 丰富经验。后端开发使用 Django 和 FastAPI。
-
-教育背景
-2013.09 - 2017.06  浙江大学  数据科学  硕士
-
-工作经历
-2020.05 - 至今    某大数据公司    高级数据工程师
-- 使用 Python + Spark 搭建大数据处理平台
-- Kafka 实时数据流处理
-- Hadoop 集群运维和数据仓库建设
-- 使用 Django 开发数据管理后台
-- FastAPI 开发数据服务接口
-- Redis 缓存和 PostgreSQL 数据存储
-- Docker 容器化部署，CI/CD 流水线
-- 团队项目管理，带领 4 人小组
-
-2017.07 - 2020.04    某科技公司    数据开发工程师
-- Python 数据 ETL 脚本开发
-- Spark 批处理任务开发
-- MySQL 数据库设计和查询优化
-- Hadoop 生态系统使用（Hive, HBase）
-- Linux 服务器运维
-
-技术栈
-编程语言：Python, SQL, Scala, Shell
-后端框架：Django, FastAPI
-数据库：MySQL, PostgreSQL, Redis, MongoDB
-大数据：Spark, Hadoop, Kafka, Hive
-云与运维：Docker, Kubernetes, Linux, CI/CD
-数据工具：Pandas, NumPy, Jupyter
-版本控制：Git`
-  }
-];
-
 // ========== 事件绑定 ==========
 function initEvents() {
   // JD 输入实时统计
@@ -2008,20 +1849,6 @@ function initEvents() {
     fileInput.value = '';
   });
 
-  // 加载示例简历
-  $('#loadDemoResumes').addEventListener('click', () => {
-    DEMO_RESUMES.forEach(r => {
-      state.resumes.push({
-        name: r.name,
-        text: r.text,
-        size: r.text.length * 2,
-        status: 'demo',
-        file: null
-      });
-    });
-    renderFileList();
-  });
-
   // 开始分析
   $('#startAnalysis').addEventListener('click', runAnalysis);
 
@@ -2062,7 +1889,6 @@ function initEvents() {
 
   // 邮箱配置事件
   $('#emailConfigSave').addEventListener('click', saveEmailConfig);
-  $('#emailConfigUseDemo').addEventListener('click', useDemoEmailData);
   $('#emailPreset').addEventListener('change', (e) => {
     const val = e.target.value;
     const isCustom = val === 'custom';
@@ -2265,7 +2091,6 @@ const EMAIL_API_BASE = (() => {
   return '/api';
 })();
 let emailSearchResults = [];
-let emailDemoMode = false;
 let emailConfigLoaded = false;
 
 /* ---- 邮箱配置 ---- */
@@ -2384,33 +2209,72 @@ async function startRealEmailSearch(keywordsStr, startDate, endDate) {
   if (startDate) params.set('start_date', startDate);
   if (endDate) params.set('end_date', endDate);
 
+  // Render 免费版 30 秒超时，前端给 28 秒保护
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 28000);
+
   try {
-    const resp = await fetch(`${EMAIL_API_BASE}/search-emails?${params.toString()}`);
-    const data = await resp.json();
+    const resp = await fetch(`${EMAIL_API_BASE}/search-emails?${params.toString()}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     progress.style.display = 'none';
+
+    let data;
+    try {
+      data = await resp.json();
+    } catch (parseErr) {
+      data = { success: false, error: '后端返回异常，请稍后再试' };
+    }
+
+    if (!resp.ok) {
+      $('#emailEmpty').style.display = 'block';
+      const emptyTitle = $('#emailEmpty').querySelector('.email-empty-title');
+      const emptyDesc = $('#emailEmpty').querySelector('.email-empty-desc');
+      if (emptyTitle) emptyTitle.textContent = '搜索失败';
+      if (emptyDesc) emptyDesc.textContent = data.error || `服务器错误（${resp.status}），请缩小日期范围或减少关键词后再试`;
+      return;
+    }
 
     if (data.success && data.total > 0) {
       emailSearchResults = data.emails;
-      emailDemoMode = false;
       $('#emailResults').style.display = 'block';
       renderEmailResults(data);
-    } else {
+      // 如果是部分结果，给出提示
+      if (data.partial && data.message) {
+        showToast(data.message, 'info');
+      }
+    } else if (data.success && data.total === 0) {
       $('#emailEmpty').style.display = 'block';
       const emptyTitle = $('#emailEmpty').querySelector('.email-empty-title');
       const emptyDesc = $('#emailEmpty').querySelector('.email-empty-desc');
       if (emptyTitle) emptyTitle.textContent = '未找到匹配的邮件';
-      if (emptyDesc) emptyDesc.textContent = data.message || '邮箱中暂无匹配关键词的邮件，可返回修改关键词再试';
+      if (emptyDesc) emptyDesc.textContent = data.message || '邮箱中暂无匹配关键词的邮件，可返回修改关键词或日期范围再试';
+    } else {
+      $('#emailEmpty').style.display = 'block';
+      const emptyTitle = $('#emailEmpty').querySelector('.email-empty-title');
+      const emptyDesc = $('#emailEmpty').querySelector('.email-empty-desc');
+      if (emptyTitle) emptyTitle.textContent = '搜索失败';
+      if (emptyDesc) emptyDesc.textContent = data.error || '邮箱搜索失败，请检查配置后重试';
     }
   } catch (e) {
+    clearTimeout(timeoutId);
     progress.style.display = 'none';
     $('#emailEmpty').style.display = 'block';
+    const emptyTitle = $('#emailEmpty').querySelector('.email-empty-title');
+    const emptyDesc = $('#emailEmpty').querySelector('.email-empty-desc');
+    if (emptyTitle) emptyTitle.textContent = '搜索超时或网络错误';
+    if (emptyDesc) {
+      emptyDesc.textContent = e.name === 'AbortError'
+        ? '搜索超时。收件箱邮件较多，建议缩小日期范围或减少关键词后再试。'
+        : '无法连接后端服务，请刷新页面后重试。';
+    }
   }
 }
 
 /* 打开邮箱导入弹窗 */
 async function openEmailImport() {
   emailSearchResults = [];
-  emailDemoMode = false;
   const overlay = $('#emailModalOverlay');
   const progress = $('#emailSearchProgress');
   const results = $('#emailResults');
@@ -2438,181 +2302,6 @@ async function openEmailImport() {
     $('#emailKeywordPanel').style.display = 'none';
   }
 }
-
-/* 使用演示数据 */
-function useDemoEmailData() {
-  emailDemoMode = true;
-  emailSearchResults = DEMO_EMAIL_DATA.emails;
-  $('#emailConfigPanel').style.display = 'none';
-  $('#emailSearchProgress').style.display = 'none';
-  $('#emailResults').style.display = 'block';
-  $('#emailEmpty').style.display = 'none';
-  renderEmailResults(DEMO_EMAIL_DATA);
-}
-const DEMO_EMAIL_DATA = {
-  success: true,
-  total: 5,
-  from_cache: true,
-  last_updated: '2026-07-29T10:00:00Z',
-  keywords: ['intern', '实习', '秋招', '求职'],
-  emails: [
-    {
-      id: 'demo_msg_001',
-      subject: '【实习申请】张三 - 前端开发实习生 - 2026暑期',
-      from: 'zhangsan@example.com',
-      date: '2026-07-28 14:30',
-      snippet: '您好，我是张三，目前就读于某某大学计算机专业大三，看到贵司招聘前端开发实习生，特此投递简历。熟练掌握 React、Vue、TypeScript...',
-      attachments: [
-        {
-          filename: '张三-前端开发实习生.pdf',
-          size: 245760,
-          downloaded: true,
-          extracted_chars: 1200,
-          parsed_text: `张三
-手机号: 138****5678 | 邮箱: zhangsan@example.com
-教育背景: 某某大学 - 计算机科学与技术 - 本科 - 2023.09-2027.06 (预计)
-实习经历:
-- 字节跳动 - 前端开发实习生 - 2026.03-至今
-  · 负责抖音电商后台管理系统开发，使用 React + TypeScript
-  · 参与组件库设计与开发，封装 30+ 通用组件
-  · 优化页面性能，首屏加载时间减少 40%
-- 美团 - 前端开发实习生 - 2025.07-2025.12
-  · 参与美团外卖商家端小程序开发
-  · 使用 Vue3 + Vite 重构 legacy 页面
-  · 编写单元测试，测试覆盖率提升至 85%
-项目经历:
-- 个人博客系统 (React + Node.js)
-  · 全栈开发，支持 Markdown 编辑、评论、标签系统
-  · 使用 Next.js SSR 优化 SEO
-技能: JavaScript, TypeScript, React, Vue, Node.js, Webpack, Git, HTML/CSS`
-        }
-      ]
-    },
-    {
-      id: 'demo_msg_002',
-      subject: '【实习】李四 - 后端开发实习 - Java/Python',
-      from: 'lisi@example.com',
-      date: '2026-07-27 09:15',
-      snippet: '尊敬的招聘负责人，我是李四，某985高校软件工程专业大四学生，求职后端开发实习岗位。熟悉 Java Spring Boot、Python Flask...',
-      attachments: [
-        {
-          filename: '李四-后端开发实习生.pdf',
-          size: 189440,
-          downloaded: true,
-          extracted_chars: 980,
-          parsed_text: `李四
-手机号: 139****9012 | 邮箱: lisi@example.com
-教育背景: 某985大学 - 软件工程 - 本科 - 2022.09-2026.06
-实习经历:
-- 阿里巴巴 - Java后端开发实习生 - 2026.01-至今
-  · 参与淘宝交易系统核心模块开发
-  · 使用 Spring Boot + MySQL + Redis 开发订单服务
-  · 编写技术文档，完成代码 review 200+ 次
-项目经历:
-- 分布式任务调度平台 (Spring Boot + Kafka)
-  · 设计实现支持 10万+QPS 的任务调度系统
-  · 使用 Kafka 做任务分发，保证消息不丢失
-  · 集成 Prometheus + Grafana 监控报警
-技能: Java, Python, Spring Boot, MySQL, Redis, Kafka, Docker, Linux`
-        }
-      ]
-    },
-    {
-      id: 'demo_msg_003',
-      subject: '实习简历 - 王五 - 数据分析实习生',
-      from: 'wangwu@example.com',
-      date: '2026-07-26 16:45',
-      snippet: '你好，我是王五，统计学专业研究生在读，对数据分析岗位很感兴趣。熟悉 SQL、Python pandas、数据可视化...',
-      attachments: [
-        {
-          filename: '王五-数据分析实习生.pdf',
-          size: 156672,
-          downloaded: true,
-          extracted_chars: 850,
-          parsed_text: `王五
-手机号: 137****3456 | 邮箱: wangwu@example.com
-教育背景: 某财经大学 - 统计学 - 硕士 - 2024.09-2027.06 (预计)
-实习经历:
-- 腾讯 - 数据分析实习生 - 2025.12-2026.06
-  · 负责微信用户行为数据分析，产出周报月报
-  · 使用 SQL + Python 搭建用户画像模型
-  · 通过 A/B 测试优化产品功能，提升留存 5%
-项目经历:
-- 电商用户流失预测模型
-  · 使用 Python scikit-learn 构建 XGBoost 预测模型
-  · AUC 达到 0.85，准确识别 70% 流失用户
-  · 可视化分析结果，产出策略建议报告
-技能: Python, SQL, Excel, Tableau, SPSS, R, Pandas, NumPy`
-        }
-      ]
-    },
-    {
-      id: 'demo_msg_004',
-      subject: '【秋招求职】赵六 - 全栈开发实习',
-      from: 'zhaoliu@example.com',
-      date: '2026-07-25 11:20',
-      snippet: 'HR 你好，我是赵六，正在寻找 2026 秋季的全栈开发实习机会。技术栈 React + Node.js + MongoDB...',
-      attachments: [
-        {
-          filename: '赵六-全栈开发实习.pdf',
-          size: 212992,
-          downloaded: true,
-          extracted_chars: 1100,
-          parsed_text: `赵六
-手机号: 136****7890 | 邮箱: zhaoliu@example.com
-教育背景: 某科技大学 - 计算机科学 - 本科 - 2022.09-2026.06
-实习经历:
-- 滴滴出行 - 全栈开发实习生 - 2025.09-2026.03
-  · 负责司机端 H5 页面开发与后端 API 设计
-  · 使用 React + Express + MongoDB 全栈开发
-  · 实现实时消息推送，WebSocket 连接稳定性 99.9%
-- 小红书 - 前端开发实习生 - 2025.03-2025.08
-  · 参与社区内容发布页重构
-  · 优化图片上传组件，支持断点续传
-  · 使用 Canvas 实现图片裁剪与滤镜功能
-项目经历:
-- 在线教育平台 (MERN 全栈)
-  · 独立开发，包含视频播放、直播、作业系统
-  · 使用 WebRTC 实现实时音视频通话
-技能: JavaScript, React, Node.js, Express, MongoDB, WebSocket, WebRTC, Docker`
-        }
-      ]
-    },
-    {
-      id: 'demo_msg_005',
-      subject: '求职申请 - 孙七 - AI算法实习生',
-      from: 'sunqi@example.com',
-      date: '2026-07-24 08:00',
-      snippet: '您好，我是孙七，人工智能专业博士在读，研究方向为 NLP 与大模型。希望申请贵司 AI 算法实习岗位...',
-      attachments: [
-        {
-          filename: '孙七-AI算法实习生.pdf',
-          size: 278528,
-          downloaded: true,
-          extracted_chars: 1350,
-          parsed_text: `孙七
-手机号: 135****2345 | 邮箱: sunqi@example.com
-教育背景: 某顶尖高校 - 人工智能 - 博士 - 2023.09-2027.06 (预计)
-  · GPA: 3.9/4.0，获国家奖学金
-  · 发表顶会论文 2 篇 (ACL, NeurIPS)
-实习经历:
-- 百度 - AI算法实习生 - 2025.06-2026.01
-  · 参与文心一言大模型训练数据清洗与质量评估
-  · 设计实现 RLHF 奖励模型，提升回答质量 15%
-  · 使用 PyTorch + DeepSpeed 进行分布式训练
-- 商汤科技 - 计算机视觉实习生 - 2024.07-2025.01
-  · 参与人脸识别算法优化，准确率提升至 99.5%
-  · 使用 TensorRT 优化推理速度，延迟降低 60%
-项目经历:
-- 多模态大模型微调项目
-  · 基于 LLaVA 架构，微调视觉语言模型
-  · 在自定义数据集上达到 SOTA 效果
-技能: Python, PyTorch, TensorFlow, Transformers, CUDA, DeepSpeed, LangChain, OpenAI API`
-        }
-      ]
-    }
-  ]
-};
 
 /* 渲染邮箱搜索结果 */
 function renderEmailResults(data) {
@@ -2708,35 +2397,6 @@ async function importSelectedResumes() {
   // 显示导入进度
   closeEmailModal();
   showImportProgress(0, selectedIds.length);
-
-  // 演示模式：直接从嵌入数据提取，无需调后端
-  if (emailDemoMode) {
-    let imported = 0;
-    selectedIds.forEach(id => {
-      const email = DEMO_EMAIL_DATA.emails.find(e => e.id === id);
-      if (!email) return;
-      email.attachments.forEach(att => {
-        if (!att.parsed_text || att.parsed_text.trim().length < 50) return;
-        state.resumes.push({
-          name: att.filename.replace(/\.pdf$|\.docx?$/i, ''),
-          text: att.parsed_text,
-          size: att.size,
-          status: 'ready',
-          file: null
-        });
-        imported++;
-      });
-    });
-
-    updateImportProgress(imported, selectedIds.length, 0);
-    setTimeout(() => {
-      removeImportProgress();
-      renderFileList();
-      showToast(`成功导入 ${imported} 份演示简历（演示模式）`, 'success');
-      updateAnalysisButton();
-    }, 800);
-    return;
-  }
 
   try {
     const resp = await fetch(`${EMAIL_API_BASE}/batch-import`, {

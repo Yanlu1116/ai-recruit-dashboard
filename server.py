@@ -675,11 +675,22 @@ def _safe_filename(filename: str) -> str:
     return hashlib.md5(filename.encode()).hexdigest()[:8] + "_" + re.sub(r'[\\/:*?"<>|]', '_', filename)
 
 
-def search_emails_via_pop3(keywords: list[str], max_results: int = 500, start_date: str = None, end_date: str = None) -> dict:
+def search_emails_via_pop3(
+    keywords: list[str],
+    start_date: str = None,
+    end_date: str = None,
+    scan_limit: int = 300,
+    match_limit: int = 50,
+    max_time_seconds: float = 25.0,
+) -> dict:
     """
     通过 POP3 搜索邮箱中的简历邮件。
-    POP3 没有服务器端搜索，必须拉取所有邮件头在本地过滤。
-    start_date / end_date: ISO 日期字符串，如 "2026-07-01"。
+
+    为避免 Render 30 秒超时，采用增量扫描：
+    - 从新到旧扫描邮件头
+    - 命中关键词和日期后再拉取完整邮件
+    - 达到 match_limit 或 scan_limit 时停止
+    - 接近 max_time_seconds 时返回已收集的部分结果
     """
     cfg = get_email_config()
     if not cfg or cfg["protocol"] != "pop3":
@@ -701,34 +712,33 @@ def search_emails_via_pop3(keywords: list[str], max_results: int = 500, start_da
     except Exception as e:
         return {"success": False, "error": f"POP3 连接失败: {e}", "emails": [], "total": 0}
 
-    try:
-        # POP3 邮件 ID 从 1 开始，越大越新
-        all_ids = list(range(1, total + 1))
-        # 只看最近 max_results 封
-        if len(all_ids) > max_results:
-            all_ids = all_ids[-max_results:]
+    begin_time = time.time()
+    emails = []
+    scanned = 0
+    started = False
+    time_exceeded = False
 
-        # 第一遍：只取邮件 header，用关键词过滤
-        matched = []
-        for msg_num in all_ids:
+    try:
+        # 从新到旧扫描：msg_num 越大越新
+        start_num = max(1, total - scan_limit + 1)
+        for msg_num in range(total, start_num - 1, -1):
+            # 时间保护：接近 Render 30 秒上限时提前返回
+            if time.time() - begin_time > max_time_seconds:
+                time_exceeded = True
+                break
+
             try:
-                # POP3 TOP 命令：取邮件 header + 前 N 行正文
-                # 先用 TOP 0（只取 header），节省流量
+                # 先取 header；CoreMail 可能不支持 TOP 0，降级 RETR
                 try:
                     response, lines, size = conn.top(msg_num, 0)
                 except poplib.error_proto:
-                    # CoreMail 等服务器可能不支持 TOP 0，降级用 RETR 获取完整邮件
                     response, lines, size = conn.retr(msg_num)
+                scanned += 1
                 msg_bytes = b"\n".join(lines)
                 header_msg = email.message_from_bytes(msg_bytes)
                 subject = decode_email_header(header_msg.get("Subject", "(无主题)"))
                 from_addr = decode_email_address(header_msg.get("From", ""))
                 date_str = header_msg.get("Date", "")
-                try:
-                    date_obj = parsedate_to_datetime(date_str)
-                    date_iso = date_obj.isoformat()
-                except Exception:
-                    date_iso = date_str
 
                 # 关键词过滤（subject + from）
                 combined = f"{subject} {from_addr}"
@@ -739,52 +749,43 @@ def search_emails_via_pop3(keywords: list[str], max_results: int = 500, start_da
                 if (start_dt or end_dt) and not _email_date_in_range(date_str, start_dt, end_dt):
                     continue
 
-                matched.append({
-                    "id": f"pop3_{msg_num}",
-                    "subject": subject,
-                    "from": from_addr,
-                    "date": date_iso,
-                    "msg_num": msg_num,
-                })
-            except Exception as e:
-                print(f"POP3 解析邮件 #{msg_num} header 出错: {e}", file=sys.stderr)
-                continue
+                # 命中后拉取完整邮件，提取正文和附件
+                try:
+                    response, lines, size = conn.retr(msg_num)
+                    msg_bytes = b"\n".join(lines)
+                    full_info = _parse_email_message(msg_bytes)
+                    combined2 = f"{full_info['subject']} {full_info['from']} {full_info['snippet']}"
+                    if not text_contains_keyword(combined2, keywords):
+                        continue
+                    emails.append({
+                        "id": f"pop3_{msg_num}",
+                        **full_info,
+                        "has_attachments": len(full_info["attachments"]) > 0,
+                    })
+                except Exception as e:
+                    print(f"POP3 拉取邮件 #{msg_num} body 出错: {e}", file=sys.stderr)
+                    emails.append({
+                        "id": f"pop3_{msg_num}",
+                        "subject": subject,
+                        "from": from_addr,
+                        "date": date_str,
+                        "snippet": "",
+                        "attachments": [],
+                        "has_attachments": False,
+                    })
 
-        # 第二遍：拉取匹配的完整邮件，提取附件信息
-        emails = []
-        for m in matched:
-            try:
-                response, lines, size = conn.retr(m["msg_num"])
-                msg_bytes = b"\n".join(lines)
-                full_info = _parse_email_message(msg_bytes)
-                # 关键词二次过滤（subject + from + snippet）
-                combined2 = f"{full_info['subject']} {full_info['from']} {full_info['snippet']}"
-                if not text_contains_keyword(combined2, keywords):
-                    continue
-                emails.append({
-                    "id": m["id"],
-                    **full_info,
-                    "has_attachments": len(full_info["attachments"]) > 0,
-                })
+                if len(emails) >= match_limit:
+                    break
             except Exception as e:
-                print(f"POP3 拉取邮件 #{m['msg_num']} body 出错: {e}", file=sys.stderr)
-                # 仍然加入，但标记没有附件
-                emails.append({
-                    "id": m["id"],
-                    "subject": m["subject"],
-                    "from": m["from"],
-                    "date": m["date"],
-                    "snippet": "",
-                    "attachments": [],
-                    "has_attachments": False,
-                })
+                print(f"POP3 解析邮件 #{msg_num} 出错: {e}", file=sys.stderr)
+                continue
 
         try:
             conn.quit()
         except Exception:
             pass
 
-        return {
+        result = {
             "success": True,
             "emails": emails,
             "total": len(emails),
@@ -792,13 +793,21 @@ def search_emails_via_pop3(keywords: list[str], max_results: int = 500, start_da
             "source": "pop3",
             "searched_keywords": keywords,
             "inbox_total": total,
+            "scanned_count": scanned,
         }
+        if time_exceeded:
+            result["partial"] = True
+            result["message"] = f"已扫描 {scanned} 封邮件，因邮件较多提前返回前 {len(emails)} 条结果。如需更全，请缩小日期范围再试。"
+        elif scanned >= scan_limit and total > scan_limit:
+            result["partial"] = True
+            result["message"] = f"已扫描最近 {scanned} 封邮件。收件箱共 {total} 封，仅展示最新匹配结果。"
+        return result
     except Exception as e:
         try:
             conn.quit()
         except Exception:
             pass
-        return {"success": False, "error": f"POP3 搜索过程出错: {e}", "emails": [], "total": 0}
+        return {"success": False, "error": f"POP3 搜索过程出错: {e}", "emails": [], "total": 0, "scanned_count": scanned}
 
 
 def download_attachment_via_pop3(email_id: str, attachment_filename: str) -> str | None:
@@ -1036,8 +1045,14 @@ def search_emails():
     keywords = [kw.strip() for kw in keywords_str.split(",") if kw.strip()]
     start_date = request.args.get("start_date", None)
     end_date = request.args.get("end_date", None)
-    start_dt = _parse_date_param(start_date)
-    end_dt = _parse_date_param(end_date)
+
+    # POP3 全量扫描容易超时，默认只扫最新 300 封、返回最多 50 条
+    try:
+        scan_limit = int(request.args.get("scan_limit", 300))
+        match_limit = int(request.args.get("match_limit", 50))
+    except (ValueError, TypeError):
+        scan_limit = 300
+        match_limit = 50
 
     cfg = get_email_config()
 
@@ -1046,7 +1061,13 @@ def search_emails():
         if cfg["protocol"] == "imap":
             result = search_emails_via_imap(keywords, start_date=start_date, end_date=end_date)
         else:
-            result = search_emails_via_pop3(keywords, start_date=start_date, end_date=end_date)
+            result = search_emails_via_pop3(
+                keywords,
+                start_date=start_date,
+                end_date=end_date,
+                scan_limit=scan_limit,
+                match_limit=match_limit,
+            )
 
         if result["success"]:
             # 缓存搜索结果
@@ -1070,7 +1091,7 @@ def search_emails():
             "total": 0,
             "emails": [],
             "from_cache": False,
-            "message": "未配置邮箱，且缓存为空。请先配置邮箱或使用演示数据。",
+            "message": "未配置邮箱，且缓存为空。请先配置邮箱。",
             "keywords": keywords,
             "status": "no_data",
             "needs_config": True,

@@ -118,10 +118,6 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 19 5"/></svg>
             上一步
           </button>
-          <button class="btn btn-ghost" id="loadDemoResumes">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            加载示例简历
-          </button>
           <button class="btn btn-primary" id="startAnalysis" disabled>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
             开始智能分析
@@ -288,7 +284,6 @@
         </div>
         <div class="email-config-actions">
           <button class="btn btn-primary btn-sm" id="emailConfigSave">保存并连接邮箱</button>
-          <button class="btn btn-ghost btn-sm" id="emailConfigUseDemo">使用演示数据</button>
         </div>
         <div class="email-config-status" id="emailConfigStatus"></div>
       </div>
@@ -315,7 +310,7 @@
             <input type="date" id="emailEndDate" class="email-config-input email-date-input" placeholder="结束日期">
             <button class="btn btn-ghost btn-xs" id="emailClearDate" title="清除日期">清除</button>
           </div>
-          <p class="email-config-help">设置日期范围后将只拉取该时段内的邮件。不填则拉全量。</p>
+          <p class="email-config-help">设置日期范围后将只拉取该时段内的最近邮件。不填默认扫描收件箱最新 300 封。
         </div>
         <div class="email-config-actions">
           <button class="btn btn-primary btn-sm" id="emailKeywordSearch">开始搜索邮箱</button>
