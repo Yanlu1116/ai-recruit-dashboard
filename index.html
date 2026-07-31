@@ -221,7 +221,7 @@
         </div>
         <div>
           <h3 class="email-modal-title">从邮箱导入实习生简历</h3>
-          <p class="email-modal-subtitle">正在搜索包含「实习 / 秋招 / 求职 / intern」关键词的邮件…</p>
+          <p class="email-modal-subtitle">连接邮箱后搜索匹配的邮件并导入简历</p>
         </div>
         <button class="email-modal-close" id="emailModalClose">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -310,7 +310,17 @@
             <input type="date" id="emailEndDate" class="email-config-input email-date-input" placeholder="结束日期">
             <button class="btn btn-ghost btn-xs" id="emailClearDate" title="清除日期">清除</button>
           </div>
-          <p class="email-config-help">设置日期范围后将只拉取该时段内的最近邮件。不填默认扫描收件箱最新 300 封。
+          <p class="email-config-help">设置日期范围后将只拉取该时段内的最近邮件。</p>
+        </div>
+        <div class="email-config-row">
+          <label class="email-config-label">扫描范围 <span class="email-config-help-inline">(防止超时)</span></label>
+          <select id="emailScanLimit" class="email-config-select email-scan-limit">
+            <option value="50">最近 50 封</option>
+            <option value="100" selected>最近 100 封</option>
+            <option value="200">最近 200 封</option>
+            <option value="300">最近 300 封</option>
+          </select>
+          <p class="email-config-help">邮件越多耗时越长，超时请先选较小范围；命中结果后会提前停止。</p>
         </div>
         <div class="email-config-actions">
           <button class="btn btn-primary btn-sm" id="emailKeywordSearch">开始搜索邮箱</button>

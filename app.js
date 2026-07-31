@@ -2001,7 +2001,8 @@ function initEvents() {
     const keywordsStr = emailTags.join(',');
     const startDate = $('#emailStartDate').value || '';
     const endDate = $('#emailEndDate').value || '';
-    startRealEmailSearch(keywordsStr, startDate, endDate);
+    const scanLimit = parseInt($('#emailScanLimit').value, 10) || 100;
+    startRealEmailSearch(keywordsStr, startDate, endDate, scanLimit);
   });
 
   // 清除日期按钮
@@ -2198,18 +2199,21 @@ async function saveEmailConfig() {
   }
 }
 
-async function startRealEmailSearch(keywordsStr, startDate, endDate) {
+async function startRealEmailSearch(keywordsStr, startDate, endDate, scanLimit = 100) {
   const progress = $('#emailSearchProgress');
   $('#emailKeywordPanel').style.display = 'none';
   progress.style.display = 'block';
-  $('#emailSearchProgressText').textContent = '正在连接邮箱并搜索匹配关键词的邮件…';
+  $('#emailSearchProgressText').textContent = `正在连接邮箱，从最近 ${scanLimit} 封邮件中搜索…`;
 
   const params = new URLSearchParams();
   params.set('keywords', keywordsStr);
   if (startDate) params.set('start_date', startDate);
   if (endDate) params.set('end_date', endDate);
+  params.set('scan_limit', String(scanLimit));
+  // 匹配上限跟随扫描范围，最大 30 条足够展示
+  params.set('match_limit', '30');
 
-  // Render 免费版 30 秒超时，前端给 28 秒保护
+  // Render 免费版 30 秒超时，前端给 28 秒保护；后端会在 23 秒内主动返回部分结果
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 28000);
 
@@ -2266,7 +2270,7 @@ async function startRealEmailSearch(keywordsStr, startDate, endDate) {
     if (emptyTitle) emptyTitle.textContent = '搜索超时或网络错误';
     if (emptyDesc) {
       emptyDesc.textContent = e.name === 'AbortError'
-        ? '搜索超时。收件箱邮件较多，建议缩小日期范围或减少关键词后再试。'
+        ? '搜索超时。建议将「扫描范围」调小（如最近 50 封），或缩小日期范围后再试。'
         : '无法连接后端服务，请刷新页面后重试。';
     }
   }

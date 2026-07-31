@@ -679,9 +679,9 @@ def search_emails_via_pop3(
     keywords: list[str],
     start_date: str = None,
     end_date: str = None,
-    scan_limit: int = 300,
-    match_limit: int = 50,
-    max_time_seconds: float = 25.0,
+    scan_limit: int = 100,
+    match_limit: int = 30,
+    max_time_seconds: float = 23.0,
 ) -> dict:
     """
     通过 POP3 搜索邮箱中的简历邮件。
@@ -691,10 +691,15 @@ def search_emails_via_pop3(
     - 命中关键词和日期后再拉取完整邮件
     - 达到 match_limit 或 scan_limit 时停止
     - 接近 max_time_seconds 时返回已收集的部分结果
+
+    注意：计时从函数开始即启动，包含连接时间，确保在 Render 30s 硬限制内安全返回。
     """
     cfg = get_email_config()
     if not cfg or cfg["protocol"] != "pop3":
         return {"success": False, "error": "未配置 POP3 邮箱", "emails": [], "total": 0}
+
+    # 计时包含连接、认证等前置耗时
+    begin_time = time.time()
 
     start_dt = _parse_date_param(start_date)
     end_dt = _parse_date_param(end_date)
@@ -712,7 +717,6 @@ def search_emails_via_pop3(
     except Exception as e:
         return {"success": False, "error": f"POP3 连接失败: {e}", "emails": [], "total": 0}
 
-    begin_time = time.time()
     emails = []
     scanned = 0
     started = False
@@ -1046,13 +1050,13 @@ def search_emails():
     start_date = request.args.get("start_date", None)
     end_date = request.args.get("end_date", None)
 
-    # POP3 全量扫描容易超时，默认只扫最新 300 封、返回最多 50 条
+    # POP3 全量扫描容易超时，默认只扫最新 100 封、返回最多 30 条
     try:
-        scan_limit = int(request.args.get("scan_limit", 300))
-        match_limit = int(request.args.get("match_limit", 50))
+        scan_limit = int(request.args.get("scan_limit", 100))
+        match_limit = int(request.args.get("match_limit", 30))
     except (ValueError, TypeError):
-        scan_limit = 300
-        match_limit = 50
+        scan_limit = 100
+        match_limit = 30
 
     cfg = get_email_config()
 
