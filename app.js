@@ -2001,7 +2001,8 @@ function initEvents() {
     const keywordsStr = emailTags.join(',');
     const startDate = $('#emailStartDate').value || '';
     const endDate = $('#emailEndDate').value || '';
-    const scanLimit = parseInt($('#emailScanLimit').value, 10) || 100;
+    const scanLimitVal = parseInt($('#emailScanLimit').value, 10);
+    const scanLimit = isNaN(scanLimitVal) ? 100 : scanLimitVal;
     startRealEmailSearch(keywordsStr, startDate, endDate, scanLimit);
   });
 
