@@ -1149,7 +1149,7 @@ body {
 .resume-modal {
   background: #fff;
   border-radius: var(--radius-lg);
-  max-width: 720px;
+  max-width: 900px;
   width: 100%;
   box-shadow: var(--shadow-xl);
   overflow: hidden;
@@ -1550,6 +1550,23 @@ body {
 .email-result-attachment.downloaded {
   background: var(--success-bg);
   color: var(--success);
+}
+
+.email-attachment-view {
+  margin-left: 8px;
+  padding: 1px 6px;
+  background: var(--primary, #4f46e5);
+  color: #fff;
+  border-radius: 3px;
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+.email-attachment-view:hover {
+  opacity: 0.85;
+  text-decoration: none;
+  color: #fff;
 }
 
 /* 空状态 */

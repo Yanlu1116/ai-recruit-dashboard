@@ -1353,10 +1353,32 @@ function showResumeModal(resume, rank) {
   const scoreLabel = getScoreLabel(resume.scores.total);
   scoreEl.innerHTML = `综合评分 <strong style="color:var(--${scoreClass === 'excellent' ? 'success' : scoreClass === 'good' ? 'primary' : scoreClass === 'medium' ? 'warning' : 'danger'})">${resume.scores.total}</strong> · ${scoreLabel} · ${resume.scores.experience.actual > 0 ? resume.scores.experience.actual + '年经验' : ''}`;
 
-  bodyEl.innerHTML = `
-    <div class="resume-modal-section-label">候选人简历原文</div>
-    <div class="resume-modal-text">${escapeHtml(resume.text)}</div>
-  `;
+  // 如果有 emailId，优先展示原始 PDF；否则展示提取的文本
+  const emailId = resume.emailId;
+  if (emailId) {
+    const pdfUrl = `${EMAIL_API_BASE}/attachment-raw/${encodeURIComponent(emailId)}`;
+    bodyEl.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="resume-modal-section-label">原始简历文件</div>
+        <a href="${pdfUrl}" target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:var(--primary,#4f46e5);color:#fff;border-radius:6px;text-decoration:none;font-size:13px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          新窗口打开原版PDF
+        </a>
+      </div>
+      <iframe src="${pdfUrl}" style="width:100%;height:70vh;border:1px solid var(--border,#e5e7eb);border-radius:8px"
+              title="原始简历 PDF"></iframe>
+      <details style="margin-top:16px">
+        <summary style="cursor:pointer;color:var(--text-secondary,#6b7280);font-size:13px;padding:4px 0">查看提取文本</summary>
+        <div class="resume-modal-text" style="margin-top:8px">${escapeHtml(resume.text)}</div>
+      </details>
+    `;
+  } else {
+    bodyEl.innerHTML = `
+      <div class="resume-modal-section-label">候选人简历原文</div>
+      <div class="resume-modal-text">${escapeHtml(resume.text)}</div>
+    `;
+  }
 
   overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
@@ -2331,9 +2353,12 @@ function renderEmailResults(data) {
     const attHtml = attachments.map(att => {
       const downloaded = att.downloaded || att.extracted_chars > 0;
       const cls = downloaded ? 'downloaded' : '';
+      const rawUrl = `${EMAIL_API_BASE}/attachment-raw/${encodeURIComponent(email.id)}`;
       return `<span class="email-result-attachment ${cls}">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         ${att.filename} ${downloaded ? '(已解析)' : ''}
+        <a href="${rawUrl}" target="_blank" rel="noopener" class="email-attachment-view" title="在新标签页查看原始文件"
+           onclick="event.stopPropagation()">查看原版</a>
       </span>`;
     }).join('');
 
@@ -2433,7 +2458,8 @@ async function importSelectedResumes() {
         text: r.text,
         size: r.size,
         status: 'ready',
-        file: null
+        file: null,
+        emailId: r.email_id || null,  // 保存 email_id 用于查看原版PDF
       });
       imported++;
     });

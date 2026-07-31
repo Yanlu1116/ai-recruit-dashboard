@@ -33,7 +33,7 @@ from pathlib import Path
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from PyPDF2 import PdfReader
 import docx
 
@@ -866,6 +866,146 @@ def download_attachment_via_pop3(email_id: str, attachment_filename: str) -> str
         return None
 
 
+def _get_cached_raw_attachment(email_id: str) -> Path | None:
+    """查找已缓存的原始附件文件"""
+    existing = sorted(CACHE_DIR.glob(f"att_{email_id}_*"))
+    if existing:
+        return existing[0]
+    return None
+
+
+def _download_and_cache_raw_attachment(email_id: str) -> tuple[Path, str, str] | None:
+    """
+    从邮件服务器下载原始附件并缓存，返回 (文件路径, 原始文件名, MIME 类型)。
+    用于直接展示原始 PDF/文档。
+    """
+    cfg = get_email_config()
+    if not cfg:
+        return None
+
+    # 先从缓存中查找附件信息
+    meta = load_cache_meta()
+    email_info = None
+    for e in meta.get("emails", []):
+        if e.get("id") == email_id:
+            email_info = e
+            break
+
+    if not email_info or not email_info.get("attachments"):
+        return None
+
+    att = email_info["attachments"][0]
+    att_filename = att.get("filename", "")
+    att_mime = att.get("mime_type", "application/pdf")
+
+    if cfg["protocol"] == "imap":
+        return _download_raw_imap(email_id, att_filename, att_mime)
+    else:
+        return _download_raw_pop3(email_id, att_filename, att_mime)
+
+
+def _download_raw_pop3(email_id: str, filename: str, mime_type: str) -> tuple[Path, str, str] | None:
+    """通过 POP3 下载原始附件并缓存"""
+    cfg = get_email_config()
+    if not cfg:
+        return None
+
+    msg_num = int(email_id.replace("pop3_", ""))
+    safe_name = _safe_filename(filename)
+    att_path = CACHE_DIR / f"att_{email_id}_{safe_name}"
+
+    # 缓存命中
+    if att_path.exists():
+        return att_path, filename, mime_type
+
+    try:
+        conn, _ = _connect_pop3(cfg)
+        try:
+            response, lines, size = conn.retr(msg_num)
+            msg_bytes = b"\n".join(lines)
+            full_msg = email.message_from_bytes(msg_bytes)
+
+            for part in full_msg.walk():
+                content_disposition = str(part.get("Content-Disposition", ""))
+                if "attachment" not in content_disposition:
+                    continue
+                part_filename = part.get_filename()
+                if not part_filename:
+                    continue
+                part_filename = decode_email_header(part_filename)
+                if part_filename != filename:
+                    continue
+                payload = part.get_payload(decode=True)
+                if not payload:
+                    continue
+                att_path.write_bytes(payload)
+                return att_path, filename, mime_type
+            return None
+        finally:
+            try:
+                conn.quit()
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"POP3 下载原始附件出错: {e}", file=sys.stderr)
+        return None
+
+
+def _download_raw_imap(email_id: str, filename: str, mime_type: str) -> tuple[Path, str, str] | None:
+    """通过 IMAP 下载原始附件并缓存"""
+    cfg = get_email_config()
+    if not cfg:
+        return None
+
+    safe_name = _safe_filename(filename)
+    att_path = CACHE_DIR / f"att_{email_id}_{safe_name}"
+
+    # 缓存命中
+    if att_path.exists():
+        return att_path, filename, mime_type
+
+    import imaplib
+    try:
+        conn = _connect_imap(cfg)
+        try:
+            conn.select("INBOX")
+            # IMAP email_id 格式: "imap_<uid>"
+            uid = email_id.replace("imap_", "")
+            typ, data = conn.uid("FETCH", uid, "(BODY[])")
+            if typ != "OK" or not data or not data[0]:
+                return None
+
+            raw = data[0]
+            # data[0] is a tuple (header, body_bytes) when the message has content
+            msg_bytes = raw[1] if isinstance(raw, tuple) else raw
+
+            full_msg = email.message_from_bytes(msg_bytes)
+            for part in full_msg.walk():
+                content_disposition = str(part.get("Content-Disposition", ""))
+                if "attachment" not in content_disposition:
+                    continue
+                part_filename = part.get_filename()
+                if not part_filename:
+                    continue
+                part_filename = decode_email_header(part_filename)
+                if part_filename != filename:
+                    continue
+                payload = part.get_payload(decode=True)
+                if not payload:
+                    continue
+                att_path.write_bytes(payload)
+                return att_path, filename, mime_type
+            return None
+        finally:
+            try:
+                conn.logout()
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"IMAP 下载原始附件出错: {e}", file=sys.stderr)
+        return None
+
+
 # ========== API: 邮箱配置 ==========
 @app.route("/api/email-config", methods=["GET"])
 def get_email_config_api():
@@ -1192,6 +1332,43 @@ def get_resume_text(email_id: str):
     })
 
 
+# ========== API: 查看原始附件（PDF/DOCX） ==========
+@app.route("/api/attachment-raw/<email_id>", methods=["GET"])
+def get_raw_attachment(email_id: str):
+    """
+    返回邮件的原始附件文件（PDF/DOCX 等），支持浏览器内直接预览。
+    优先从本地缓存读取，缓存未命中时从邮件服务器下载。
+    """
+    # 1. 检查本地缓存
+    cached = _get_cached_raw_attachment(email_id)
+    if cached and cached.exists():
+        mime = "application/pdf"
+        filename = cached.name
+        if filename.lower().endswith(".docx"):
+            mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif filename.lower().endswith(".doc"):
+            mime = "application/msword"
+        return send_file(
+            str(cached),
+            mimetype=mime,
+            as_attachment=False,
+            download_name=cached.name.partition("_")[2],  # 去掉 md5 前缀
+        )
+
+    # 2. 从邮件服务器下载
+    result = _download_and_cache_raw_attachment(email_id)
+    if result is None:
+        return jsonify({"success": False, "error": "附件下载失败"}), 404
+
+    filepath, orig_filename, mime_type = result
+    return send_file(
+        str(filepath),
+        mimetype=mime_type or "application/pdf",
+        as_attachment=False,
+        download_name=orig_filename,
+    )
+
+
 # ========== API: 批量导入简历到 Dashboard ==========
 @app.route("/api/batch-import", methods=["POST"])
 def batch_import():
@@ -1242,6 +1419,7 @@ def batch_import():
 
         resumes.append({
             "name": resume_name,
+            "email_id": email_id,
             "text": text,
             "size": len(text.encode("utf-8")),
             "email_subject": email_info.get("subject", "") if email_info else "",
